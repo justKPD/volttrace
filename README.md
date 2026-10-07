@@ -34,11 +34,17 @@ no server and nothing precomputed except the 15-minute multi-seed benchmark.
 | **CI Orchestrator** | Pick a change and a policy (A full, B static, C adaptive, D noise-aware) and run the whole CI cycle live: every SiL job, every HiL escalation and why, as a Gantt chart. |
 | **Requirements** | Read the 15 requirements, and write your own STL formula against the last run. |
 | **Findings** | Replay each of the six defects in one click, on the build that still has it. |
+| **Report** | Your **live session report**: every test, search, CI cycle, hunt and formula you ran, with tiles, plain-language insights (bugs caught and missed, thinnest margins, rig time), requirement coverage and an activity log with "run again". Download it as a self-contained HTML report, JSON or JUnit XML. It survives a reload. |
+
+**Ask VoltTrace** (bottom right) drives all of it in plain words: *"replay F-002"*, *"run TC-003 with M07 on HiL seed 2"*,
+*"zoom to violation"*, *"falsify M09 with cem"*, *"ci M05 policy D"*, *"start a hunt"*, *"always(v_bus <= 812)"*,
+*"summary"*. The built-in mode works offline. An optional Claude mode (your own API key, kept only in your browser)
+plans multi-step requests, using the same actions as tools.
 
 Run it locally with the engine in your own Python process: `pip install -e . && volttrace serve` → http://127.0.0.1:8000.
-Every push rebuilds the Studio and boots the **static** site in Chromium, where 10 end-to-end checks must pass
-(`scripts/studio_e2e.py`) before it deploys. The generated [evidence report](https://justkpd.github.io/volttrace/report.html)
-sits next to it.
+Every push rebuilds the Studio and boots the **static** site in Chromium, where 67 end-to-end checks covering every page,
+export, finding replay, the session report and the assistant must pass (`scripts/studio_e2e.py`) before it deploys.
+The pre-built project [evidence report](https://justkpd.github.io/volttrace/report.html) sits next to it.
 
 ## What the pipeline found in its own "clean" code
 
@@ -126,7 +132,7 @@ volttrace bench --seeds 0 1 2      # A/B/C/D orchestration benchmark (~15 min)
 volttrace serve                    # VoltTrace Studio on http://127.0.0.1:8000 (engine in this process)
 volttrace build-site               # static Studio + evidence report -> out/site
 volttrace falsify falsify/FZ-003_regen.yaml --sut M09SopAssumesNewPack --seed 1   # rediscover F-002
-pytest -q                          # 48 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
+pytest -q                          # 49 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
 ```
 
 ## What this is and is not

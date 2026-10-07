@@ -19,7 +19,7 @@
     <a href="#/ci" data-route="ci">CI Orchestrator</a>
     <a href="#/requirements" data-route="requirements">Requirements</a>
     <a href="#/findings" data-route="findings">Findings</a>
-    <a href="report.html">Report</a>
+    <a href="#/report" data-route="report">Report <span id="reportCount" class="count" hidden></span></a>
   </nav>
   <div id="engine" class="engine loading" title="Where the simulation runs">Engine: starting…</div>
 </header>
@@ -27,9 +27,10 @@
 <footer class="foot">
   Synthetic system for a portfolio project: every parameter, requirement and line of ECU code is invented and unrelated
   to any manufacturer. The HiL tier is a <b>mock</b> of HiL effects, not a rig.
-  <a href="https://github.com/justKPD/volttrace">Source</a>
+  <a href="report.html">Project evidence report</a> · <a href="https://github.com/justKPD/volttrace">Source</a>
 </footer>
 <div id="tip" role="tooltip"></div>
+<div id="toast" role="status"></div>
 <script type="module" src="js/app.js"></script>
 </body>
 </html>

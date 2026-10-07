@@ -62,3 +62,13 @@ def test_bug_hunt_hides_then_reveals(engine):
     assert reveal["change"] and reveal["runs"] == 1
     with pytest.raises(ValueError):
         engine.hunt_run({"case": "TC-005"})
+
+
+def test_stl_playground_names_the_trace_it_evaluated_without_leaking_the_hunt():
+    e = Engine(build_bundle(ROOT))
+    e.run({"case": "TC-003", "sut": "M07VoltageGuardSign"})
+    assert e.stl_eval({"formula": "always(v_bus >= 560)"})["trace"] == "M07VoltageGuardSign on sil"
+    e.hunt_start({"seed": 3})
+    e.hunt_run({"case": "TC-005", "env": "hil_mock", "seed": 2})
+    label = e.stl_eval({"formula": "always(v_bus >= 560)"})["trace"]
+    assert label == "the hidden change on hil_mock (seed 2)"

@@ -1,5 +1,7 @@
 import { createEngine } from "./engine.js";
 import { fmt, gantt, hideTip, lineChart, progressChart } from "./charts.js";
+import * as session from "./session.js";
+import { mountAssistant } from "./assistant.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -9,10 +11,11 @@ let engine = null;
 let info = null;
 const state = {
   bench: { case: "TC-001", sut: "baseline", env: "sil", seed: 0, overlay: false, overrides: {}, focus: null, window: null,
-           autorun: false, scenario: null, last: null, ref: null },
-  hunt: { active: false, runs: [], candidates: [], reveal: null },
+           scenario: null, last: null, ref: null, source: "Test Bench" },
+  hunt: { active: false, runs: [], candidates: [], reveal: null, rig: 0, case: "TC-001", env: "sil", seed: 0, shown: null },
   falsify: { template: "FZ-003", sut: "M09SopAssumesNewPack", strategy: "random", budget: 30, seed: 1, result: null },
   ci: { change: "M14MissingVoltageAsZero", policy: "C", seed: 0, result: null },
+  stl: { formula: "always(v_bus <= 812)", result: null },
 };
 
 // ------------------------------------------------------------------ engine boot
@@ -22,6 +25,7 @@ function setStatus(s) {
   pill.textContent = s.error ? "Engine failed to start" : s.ready ? "Engine ready · runs " + s.mode : s.text || "Engine: starting…";
   pill.title = s.error || "Where the simulation runs";
 }
+let bootError = null;
 const booting = createEngine(setStatus)
   .then((e) => {
     engine = e;
@@ -34,12 +38,12 @@ const booting = createEngine(setStatus)
     bootError = err;
     view.innerHTML = `<div class="note bad"><h3>The validation engine could not start</h3><p>${esc(err.message)}</p>
       <p>Everything on this site is computed by a Python engine that runs inside your browser. The
-      <a href="report.html">evidence report</a> works without it.</p></div>`;
+      <a href="report.html">project evidence report</a> works without it.</p></div>`;
   });
 
 async function call(method, params, onProgress) {
   await booting;
-  if (!engine) throw new Error("engine not available");
+  if (!engine) throw new Error("the validation engine is not available");
   return engine.call(method, params, onProgress);
 }
 
@@ -47,6 +51,7 @@ async function call(method, params, onProgress) {
 const caseById = (id) => info.cases.find((c) => c.id === id);
 const reqById = (id) => info.requirements.find((r) => r.id === id);
 const versionById = (id) => info.versions.find((v) => v.id === id);
+const verLabel = (id) => (id === "hidden" ? "the hidden change" : versionById(id)?.label || id);
 
 function versionOptions(selected, groups = ["released", "seeded bug", "clean change", "historical build"]) {
   return groups
@@ -79,6 +84,7 @@ function download(name, text, type = "text/plain") {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function busy(btn, on, label) {
+  if (!btn) return;
   btn.disabled = on;
   if (on) {
     btn.dataset.label = btn.innerHTML;
@@ -86,17 +92,29 @@ function busy(btn, on, label) {
   } else if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
 }
 function errorNote(host, err) {
-  host.insertAdjacentHTML("afterbegin", `<div class="note bad">${esc(err.message || err)}</div>`);
+  host?.insertAdjacentHTML("afterbegin", `<div class="note bad">${esc(err.message || err)}</div>`);
+}
+const toastBox = $("#toast");
+function toast(html) {
+  if (!toastBox) return;
+  toastBox.innerHTML = html;
+  toastBox.classList.add("show");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => toastBox.classList.remove("show"), 4500);
 }
 
 // ------------------------------------------------------------------ router
 const routes = { "": renderStart, bench: renderBench, hunt: renderHunt, falsify: renderFalsify, ci: renderCI,
-                 requirements: renderRequirements, findings: renderFindings };
-let bootError = null;
+                 requirements: renderRequirements, findings: renderFindings, report: renderReport };
+const ROUTE_NAMES = { "": "Start", bench: "Test Bench", hunt: "Bug Hunt", falsify: "Falsifier", ci: "CI Orchestrator",
+                      requirements: "Requirements", findings: "Findings", report: "Session Report" };
+const currentRoute = () => location.hash.replace(/^#\/?/, "").split("?")[0];
+let skipHash = null;
+
 function render() {
   hideTip();
   if (bootError) return;
-  const route = location.hash.replace(/^#\/?/, "").split("?")[0];
+  const route = currentRoute();
   document.querySelectorAll("#nav a[data-route]").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   if (!info) {
     view.innerHTML = `<div class="empty"><span class="spinner"></span> Starting the validation engine… the first visit
@@ -107,17 +125,284 @@ function render() {
   (routes[route] || renderStart)();
   window.scrollTo(0, 0);
 }
-window.addEventListener("hashchange", render);
+/** Show a page now (synchronously), so an action can run on it straight away. */
+function navigate(route) {
+  const hash = "#/" + route;
+  if (location.hash !== hash && !(route === "" && location.hash === "")) {
+    skipHash = hash;
+    location.hash = hash;
+  }
+  render();
+}
+window.addEventListener("hashchange", () => {
+  if (location.hash === skipHash) { skipHash = null; return; }
+  skipHash = null;
+  render();
+});
 render();
+
+// ------------------------------------------------------------------ session log
+function recordRun(res, source, spec) {
+  const v = versionById(res.sut);
+  const test = spec.scenario ? (source.startsWith("Falsifier") ? "falsifier scenario" : "custom scenario") : spec.case;
+  const custom = spec.overrides && spec.overrides.initial && Object.keys(spec.overrides.initial).length ? spec.overrides.initial : null;
+  const entry = session.record("run", {
+    source, sut: res.sut, sutLabel: verLabel(res.sut), group: v ? v.group : "", test, env: res.env, seed: res.seed,
+    overall: res.overall, rig_s: res.rig_seconds, sim_s: res.sim_seconds, params: custom,
+    verdicts: res.verdicts.map((x) => ({ id: x.id, verdict: x.verdict, margin: x.margin, t: x.first_violation_t })),
+    spec: { case: spec.case, scenario: spec.scenario, overrides: spec.overrides, sut: spec.sut, env: spec.env, seed: spec.seed },
+  });
+  toast(`Run #${entry.n} added to your <a href="#/report">Session Report</a>.`);
+  return entry;
+}
+session.onChange(() => {
+  const n = session.log.entries.length;
+  const badge = $("#reportCount");
+  if (badge) { badge.textContent = n ? String(n) : ""; badge.hidden = !n; }
+  if (info && currentRoute() === "report") renderReport();
+});
+{
+  const badge = $("#reportCount");
+  if (badge && session.log.entries.length) { badge.textContent = String(session.log.entries.length); badge.hidden = false; }
+}
+
+/** Compact, signal-free summary of a run, for the assistant and for tool results. */
+function runSummary(res) {
+  const failed = res.verdicts.filter((v) => v.verdict === "FAIL");
+  const passing = res.verdicts.filter((v) => v.margin !== null && v.verdict !== "FAIL");
+  const thin = passing.length ? passing.reduce((a, b) => (b.margin < a.margin ? b : a)) : null;
+  return {
+    software: verLabel(res.sut), tier: res.env, seed: res.seed, overall: res.overall,
+    failed: failed.map((v) => ({ requirement: v.id, title: v.title, margin: v.margin, first_violation_s: v.first_violation_t,
+                                 new_vs_released: v.new_vs_released })),
+    inconclusive: res.verdicts.filter((v) => v.verdict === "INCONCLUSIVE").map((v) => ({ requirement: v.id, margin: v.margin })),
+    not_exercised: res.verdicts.filter((v) => v.verdict === "VACUOUS").map((v) => v.id),
+    thinnest_pass: thin ? { requirement: thin.id, margin: thin.margin } : null,
+    simulated_s: res.sim_seconds, rig_cost_s: res.rig_seconds,
+  };
+}
+
+// ------------------------------------------------------------------ actions (UI buttons and the assistant share these)
+const PARAM_ALIASES = { temp: "t_bat_c", temperature: "t_bat_c", t_bat: "t_bat_c", coolant: "t_coolant_bat_c", speed: "v_kph",
+                        ageing: "r_aging_factor", aging: "r_aging_factor", age: "r_aging_factor" };
+const actions = {
+  routes: ROUTE_NAMES,
+  currentRoute,
+  get info() { return info; },
+  state,
+  session,
+  ready: () => booting.then(() => { if (!info) throw new Error("the validation engine is not available"); }),
+
+  async go(route) {
+    await actions.ready();
+    const r = String(route || "").replace(/^#?\/?/, "");
+    if (!(r in ROUTE_NAMES)) throw new Error(`unknown page "${route}"; pages: ${Object.keys(ROUTE_NAMES).filter(Boolean).join(", ")}`);
+    navigate(r);
+    return { opened: ROUTE_NAMES[r] };
+  },
+
+  /** Run one test on the Test Bench. Missing fields keep the bench's current choice. */
+  async runTest(o = {}, source = "Test Bench") {
+    await actions.ready();
+    const s = state.bench;
+    if (o.case !== undefined && o.case !== null) {
+      const c = info.cases.find((x) => x.id.toLowerCase() === String(o.case).toLowerCase());
+      if (!c) throw new Error(`unknown test case "${o.case}"; cases: ${info.cases.map((x) => x.id).join(", ")}`);
+      if (c.id !== s.case || s.scenario) { s.overrides = {}; s.focus = null; s.window = null; }
+      s.case = c.id;
+      s.scenario = null;
+    }
+    if (o.scenario) { s.scenario = o.scenario; s.overrides = {}; }
+    if (o.overrides) s.overrides = o.overrides;
+    if (o.sut !== undefined && o.sut !== null) {
+      if (!versionById(o.sut)) throw new Error(`unknown software version "${o.sut}"; versions: ${info.versions.map((v) => v.id).join(", ")}`);
+      s.sut = o.sut;
+    }
+    if (o.env !== undefined && o.env !== null) {
+      const env = /hil/i.test(o.env) ? "hil_mock" : "sil";
+      s.env = env;
+    }
+    if (o.seed !== undefined && o.seed !== null) s.seed = Math.max(0, Math.round(+o.seed) || 0);
+    if (o.overlay !== undefined && o.overlay !== null) s.overlay = !!o.overlay;
+    if (o.params && Object.keys(o.params).length) {
+      if (s.scenario) throw new Error("scenario parameters apply to catalogue tests; pick a test case first");
+      const initial = { ...(s.overrides.initial || {}) };
+      for (const [k0, v] of Object.entries(o.params)) {
+        const k = PARAM_ALIASES[k0] || k0;
+        const p = PARAMS.find((x) => x[0] === k);
+        if (!p) throw new Error(`unknown parameter "${k0}"; parameters: ${PARAMS.map((x) => x[0]).join(", ")}`);
+        initial[k] = clampParam(k, +v);
+      }
+      s.overrides = { ...s.overrides, initial };
+    }
+    if (o.focus) s.focus = o.focus;
+    if ("window" in o) s.window = o.window;
+    s.last = null;
+    s.ref = null;
+    navigate("bench");
+    const res = await runBench(source);
+    return runSummary(res);
+  },
+
+  async replayFinding(id) {
+    await actions.ready();
+    const m = String(id).match(/(\d+)/);
+    const fid = m ? `F-${m[1].padStart(3, "0")}` : String(id);
+    const f = info.findings.find((x) => x.id === fid);
+    if (!f) throw new Error(`unknown finding "${id}"; findings: ${info.findings.map((x) => x.id).join(", ")}`);
+    const r = f.reproduce;
+    Object.assign(state.bench, { scenario: null, case: r.case, sut: r.sut, env: r.env, seed: r.seed || 0, overrides: r.overrides || {},
+      overlay: true, focus: r.focus, window: r.window, last: null, ref: null });
+    navigate("bench");
+    const res = await runBench(`Finding ${fid}`);
+    return { finding: fid, title: f.title, ...runSummary(res) };
+  },
+
+  async falsify(o = {}) {
+    await actions.ready();
+    const f = state.falsify;
+    if (o.template) {
+      const t = info.templates.find((x) => x.id.toLowerCase() === String(o.template).toLowerCase());
+      if (!t) throw new Error(`unknown template "${o.template}"; templates: ${info.templates.map((x) => x.id).join(", ")}`);
+      f.template = t.id;
+    }
+    if (o.sut) {
+      if (!versionById(o.sut)) throw new Error(`unknown software version "${o.sut}"`);
+      f.sut = o.sut;
+    }
+    if (o.strategy) f.strategy = /cem|cross/i.test(o.strategy) ? "cem" : "random";
+    if (o.budget) f.budget = Math.max(5, Math.min(80, Math.round(+o.budget) || 30));
+    if (o.seed !== undefined && o.seed !== null) f.seed = Math.max(0, Math.round(+o.seed) || 0);
+    f.result = null;
+    navigate("falsify");
+    const r = await doFalsify();
+    return { template: f.template, software: verLabel(f.sut), strategy: f.strategy, found: r.found, simulations: r.sims,
+             worst_margin: r.best.robustness, per_target: r.best.per_target, scenario: r.best.scenario };
+  },
+
+  async ci(o = {}) {
+    await actions.ready();
+    const c = state.ci;
+    if (o.change) {
+      const v = versionById(o.change);
+      if (!v || !(v.group === "seeded bug" || v.group === "clean change")) throw new Error(`"${o.change}" is not a seeded bug or clean change`);
+      c.change = v.id;
+    }
+    if (o.policy) {
+      const p = String(o.policy).toUpperCase();
+      if (!(p in POLICIES)) throw new Error("policy must be A, B, C or D");
+      c.policy = p;
+    }
+    if (o.seed !== undefined && o.seed !== null) c.seed = Math.max(0, Math.round(+o.seed) || 0);
+    c.result = null;
+    navigate("ci");
+    const r = await doCI();
+    return { change: r.change, policy: r.policy, buggy: r.buggy, detected: r.detected, detected_in: r.detected_in,
+             hil_rig_minutes: r.hil_minutes, sil_jobs: r.sil_jobs, hil_jobs: r.hil_jobs, verdict_after_min: +(r.makespan_s / 60).toFixed(2),
+             escalations: r.escalations, features_from_diff: r.features };
+  },
+
+  async huntStart() {
+    await actions.ready();
+    const h = state.hunt;
+    const r = await call("hunt_start", { seed: Math.floor(Math.random() * 1e9) });
+    Object.assign(h, { active: true, runs: [], candidates: r.candidates, reveal: null, rig: 0, shown: null });
+    session.record("hunt_start", {});
+    navigate("hunt");
+    return { started: true, candidates: r.candidates };
+  },
+
+  async huntRun(o = {}) {
+    await actions.ready();
+    const h = state.hunt;
+    if (!h.active) throw new Error("no bug hunt is active; start one first");
+    if (o.case) {
+      const c = info.cases.find((x) => x.id.toLowerCase() === String(o.case).toLowerCase());
+      if (!c) throw new Error(`unknown test case "${o.case}"`);
+      h.case = c.id;
+    }
+    if (o.env) h.env = /hil/i.test(o.env) ? "hil_mock" : "sil";
+    if (o.seed !== undefined && o.seed !== null) h.seed = Math.max(0, Math.round(+o.seed) || 0);
+    if (currentRoute() !== "hunt") navigate("hunt");
+    const res = await doHuntRun();
+    return { ...runSummary(res), rig_spent_total_s: res.hunt.rig_seconds, runs: res.hunt.runs };
+  },
+
+  async huntReveal(guess) {
+    await actions.ready();
+    const h = state.hunt;
+    if (!h.active) throw new Error("no bug hunt is active");
+    if (!h.candidates.includes(guess)) throw new Error(`pick one of: ${h.candidates.join(", ")}`);
+    h.reveal = await call("hunt_reveal", { guess });
+    h.active = false;
+    session.record("hunt_reveal", { change: h.reveal.change, guess, correct: h.reveal.correct, buggy: h.reveal.buggy,
+      features: h.reveal.features, runs: h.reveal.runs, rig_s: h.reveal.rig_seconds });
+    navigate("hunt");
+    return h.reveal;
+  },
+
+  async stl(formula) {
+    await actions.ready();
+    state.stl.formula = String(formula);
+    state.stl.result = null;
+    navigate("requirements");
+    const r = await doStl();
+    return { formula: state.stl.formula, trace: r.trace, verdict: r.verdict, robustness: r.robustness, first_violation_s: r.first_violation_t };
+  },
+
+  async showSignals(list) {
+    await actions.ready();
+    const s = state.bench;
+    if (!s.last) throw new Error("run a test first, then choose signals");
+    const bad = list.filter((x) => !(x in info.channels));
+    if (bad.length) throw new Error(`unknown signal(s): ${bad.join(", ")}; signals: ${Object.keys(info.channels).join(", ")}`);
+    s.focus = [...list];
+    navigate("bench");
+    return { showing: s.focus };
+  },
+
+  /** win: [from, to] seconds, "violation", or null for the whole run. */
+  async zoom(win) {
+    await actions.ready();
+    const s = state.bench;
+    if (!s.last) throw new Error("run a test first, then zoom");
+    if (win === "violation") {
+      const fails = s.last.verdicts.filter((v) => v.first_violation_t !== null);
+      if (!fails.length) throw new Error("the last run has no violation to zoom to");
+      const t = Math.min(...fails.map((v) => v.first_violation_t));
+      s.window = [Math.max(0, +(t - 0.5).toFixed(2)), +(t + 1.5).toFixed(2)];
+    } else if (Array.isArray(win) && win.length === 2 && isFinite(win[0]) && isFinite(win[1]) && win[1] > win[0]) {
+      s.window = [+win[0], +win[1]];
+    } else s.window = null;
+    navigate("bench");
+    return { window_s: s.window || "whole run" };
+  },
+
+  summary() {
+    const st = session.stats();
+    return { ...st, insights: session.insights(session.log.entries, info).map((i) => i.text) };
+  },
+
+  clearSession() {
+    session.clear();
+    return { cleared: true };
+  },
+};
+window.volttrace = actions; // handy in the console, and used by the end-to-end test
 
 // ------------------------------------------------------------------ start
 function renderStart() {
   const b = info.results.benchmark;
+  const st = session.stats();
   view.innerHTML = `
   <h1>Validate an 800 V energy-management ECU, right here.</h1>
   <p class="lede">VoltTrace Studio runs a complete SiL test bench in your browser: a battery-electric vehicle model, a CAN bus
   defined by a DBC file, the energy-management software under test, and requirements written in Signal Temporal Logic. Every
-  test tells you not only <b>pass or fail</b> but <b>how much margin</b> the software had. Pick a path:</p>
+  test tells you not only <b>pass or fail</b> but <b>how much margin</b> the software had. Pick a path, or ask the assistant
+  (bottom right) in plain words: <i>"replay F-002"</i>, <i>"run TC-003 with M07 on HiL"</i>.</p>
+  ${session.log.entries.length ? `<div class="banner"><span>Your session so far: <b>${st.tests}</b> test runs, <b>${st.failedRuns}</b> failed,
+    <b>${st.counterexamples}</b> counterexamples, <b>${st.ciCycles}</b> CI cycles.</span>
+    <a class="btn sm" href="#/report">Open your Session Report</a></div>` : ""}
   <div class="cards">
     <div class="card"><div class="step">1 · Run a test</div><h3>Test Bench</h3>
       <p>Run five 0–200 km/h launches, a cold aged pack or a hot track sprint. Break the software on purpose and watch the
@@ -151,31 +436,39 @@ function renderStart() {
   </div>
   ${b ? `<p class="muted small">Published benchmark: the adaptive policy uses about ${Math.round(100 * (1 - b.summary_per_seed["0"].find((r) => r.strategy === "C").mean_hil_minutes / b.summary_per_seed["0"].find((r) => r.strategy === "A").mean_hil_minutes))} %
   less HiL rig time per change than running every test on the rig. Details in <a href="#/ci">CI Orchestrator</a> and the
-  <a href="report.html">evidence report</a>.</p>` : ""}`;
+  <a href="report.html">project evidence report</a>.</p>` : ""}`;
 }
 
 // ------------------------------------------------------------------ test bench
+// key, label, unit, step, min, max
 const PARAMS = [
-  ["soc", "State of charge", "", 0.01, (v) => v],
-  ["t_bat_c", "Cell temperature", "°C", 0.5, (v) => v],
-  ["t_coolant_bat_c", "Coolant temperature", "°C", 0.5, (v) => v],
-  ["v_kph", "Start speed", "km/h", 5, (v) => v],
-  ["r_aging_factor", "Pack ageing (× resistance)", "", 0.1, (v) => v],
+  ["soc", "State of charge", "0–1", 0.01, 0.05, 1.0],
+  ["t_bat_c", "Cell temperature", "°C", 0.5, -30, 65],
+  ["t_coolant_bat_c", "Coolant temperature", "°C", 0.5, -30, 60],
+  ["v_kph", "Start speed", "km/h", 5, 0, 250],
+  ["r_aging_factor", "Pack ageing (× resistance)", "", 0.1, 1.0, 3.0],
 ];
 const DEFAULT_INITIAL = { soc: 0.8, t_bat_c: 30, t_coolant_bat_c: 25, v_kph: 0, r_aging_factor: 1.0 };
+function clampParam(k, v) {
+  const p = PARAMS.find((x) => x[0] === k);
+  if (!Number.isFinite(v)) throw new Error(`${p[1]} must be a number`);
+  if (k === "soc" && v > 1 && v <= 100) v = v / 100; // "soc 30" means 30 %
+  return Math.min(p[5], Math.max(p[4], v));
+}
 
 function renderBench() {
   const s = state.bench;
   const c = s.scenario ? null : caseById(s.case);
   const initial = s.scenario ? s.scenario.initial || {} : { ...DEFAULT_INITIAL, ...c.initial, ...(s.overrides.initial || {}) };
   const ver = versionById(s.sut);
+  const edited = Object.keys(s.overrides.initial || {});
   view.innerHTML = `
   <h1>Test Bench</h1>
   <p class="lede">Choose a test, a software version and a test tier, then run it. The ECU code, the plant and the requirement
   checks all execute ${engine.mode === "server" ? "in the local Python process" : "in your browser"}.</p>
   <div class="layout">
-    <form class="side" id="benchForm">
-      ${s.scenario ? `<div class="note">Running a custom scenario (from the falsifier or a finding).
+    <form class="side" id="benchForm" novalidate>
+      ${s.scenario ? `<div class="note">Running a custom scenario (${esc(s.source)}).
         <button type="button" class="btn sm" id="clearScenario">Back to the catalogue</button></div>` :
       `<label class="f">Test case<select name="case">${caseOptions(s.case)}</select>
         <span class="help">${esc(c.title)} · ${c.requirements.length} requirements · ${c.fidelity === "hil" ? "needs HiL fidelity" : "SiL is enough"}</span></label>`}
@@ -187,9 +480,10 @@ function renderBench() {
         <span class="help">HiL adds CAN jitter, frame loss and sensor noise, and costs ${info.envs.hil_mock.setup_s} s bring-up plus real time.</span></div>
       ${s.env === "hil_mock" ? `<label class="f">Noise seed<input type="number" name="seed" value="${s.seed}" min="0" step="1">
         <span class="help">Same seed = same noise. Intermittent faults show on some seeds only.</span></label>` : ""}
-      ${s.scenario ? "" : `<details ${Object.keys(s.overrides.initial || {}).length ? "open" : ""}><summary class="small">Scenario parameters</summary>
-        <div class="grid2" style="margin-top:8px">${PARAMS.map(([k, label, unit, step]) =>
-          `<label class="f small">${label}${unit ? ` (${unit})` : ""}<input type="number" step="${step}" name="p_${k}" value="${initial[k]}"></label>`).join("")}</div>
+      ${s.scenario ? "" : `<details ${edited.length ? "open" : ""}><summary class="small">Scenario parameters${edited.length ? ` · ${edited.length} edited` : ""}</summary>
+        <div class="grid2" style="margin-top:8px">${PARAMS.map(([k, label, unit, step, lo, hi]) =>
+          `<label class="f small${edited.includes(k) ? " edited" : ""}">${label}${unit ? ` (${unit})` : ""}<input type="number" step="${step}" min="${lo}" max="${hi}" name="p_${k}" value="${initial[k]}"></label>`).join("")}</div>
+        <span class="help">Out-of-range values are clamped to the model's valid range.</span>
         <button type="button" class="btn sm" id="resetParams" style="margin-top:6px">Reset to the test's values</button></details>`}
       <label class="check"><input type="checkbox" name="overlay" ${s.overlay ? "checked" : ""}>
         <span>Overlay the released software in the plots (runs it too, same scenario and seed)</span></label>
@@ -204,17 +498,26 @@ function renderBench() {
     if (n === "sut") { s.sut = e.target.value; return renderBench(); }
     if (n === "env") { s.env = e.target.value; return renderBench(); }
     if (n === "overlay") s.overlay = e.target.checked;
-    if (n === "seed") s.seed = +e.target.value;
+    if (n === "seed") { s.seed = Math.max(0, Math.round(+e.target.value) || 0); e.target.value = s.seed; }
     if (n && n.startsWith("p_")) {
       const k = n.slice(2);
-      s.overrides.initial = { ...(s.overrides.initial || {}), [k]: +e.target.value };
+      const init = { ...(s.overrides.initial || {}) };
+      const raw = parseFloat(e.target.value);
+      if (Number.isFinite(raw)) {
+        init[k] = clampParam(k, raw);
+        e.target.value = init[k];
+      } else {
+        delete init[k]; // a blank field means "use the test's own value"
+        e.target.value = { ...DEFAULT_INITIAL, ...c.initial }[k];
+      }
+      s.overrides = { ...s.overrides, initial: init };
+      e.target.closest("label").classList.toggle("edited", k in init);
     }
   });
   $("#resetParams")?.addEventListener("click", () => { s.overrides = {}; renderBench(); });
   $("#clearScenario")?.addEventListener("click", () => { s.scenario = null; s.last = null; s.ref = null; renderBench(); });
-  form.addEventListener("submit", (e) => { e.preventDefault(); runBench(); });
+  form.addEventListener("submit", (e) => { e.preventDefault(); runBench().catch(() => {}); });
   if (s.last) showBenchResult();
-  if (s.autorun) { s.autorun = false; runBench(); }
 }
 
 function benchSpec(sut) {
@@ -223,17 +526,21 @@ function benchSpec(sut) {
   return { ...base, sut, env: s.env, seed: s.seed };
 }
 
-async function runBench() {
+async function runBench(source = "Test Bench") {
   const s = state.bench;
   const btn = $("#runBtn");
   busy(btn, true, "Simulating…");
-  const out = $("#benchOut");
+  const spec = benchSpec(s.sut);
   try {
     s.ref = s.overlay && s.sut !== "baseline" ? await call("run", benchSpec("baseline")) : null;
-    s.last = await call("run", benchSpec(s.sut));
-    showBenchResult();
+    s.last = await call("run", spec);
+    s.source = source;
+    recordRun(s.last, source, spec);
+    if (currentRoute() === "bench" && $("#benchOut")) showBenchResult();
+    return s.last;
   } catch (err) {
-    errorNote(out, err);
+    errorNote($("#benchOut"), err);
+    throw err;
   } finally {
     busy(btn, false);
   }
@@ -245,10 +552,10 @@ function showBenchResult(host = $("#benchOut"), res = state.bench.last, ref = st
   res.verdicts.forEach((v) => (counts[v.verdict] = (counts[v.verdict] || 0) + 1));
   const fails = res.verdicts.filter((v) => v.verdict === "FAIL" && v.first_violation_t !== null);
   const firstV = fails.length ? Math.min(...fails.map((v) => v.first_violation_t)) : null;
-  const verName = res.sut === "hidden" ? "the hidden change" : versionById(res.sut)?.label || res.sut;
+  const verName = verLabel(res.sut);
   const explain = {
     PASS: "Every requirement held with a comfortable margin.",
-    FAIL: "At least one requirement broke. The red line in the plots marks the first violation.",
+    FAIL: "At least one requirement broke. The red line in the plots marks the first violation. Click a requirement row to jump to it.",
     INCONCLUSIVE: "Everything held, but at least one margin is too thin to trust this tier. A real team would escalate to HiL.",
     VACUOUS: "The scenario never triggered the requirement's condition, so it proves nothing about it.",
   }[res.overall];
@@ -282,12 +589,14 @@ function showBenchResult(host = $("#benchOut"), res = state.bench.last, ref = st
   let focus = (opts.focus || (own && s.focus) || [...reqSignals, "v_kph"]).filter((x, i, a) => a.indexOf(x) === i && x in res.signals);
   let win = "window" in opts ? opts.window : own ? s.window : null;
   const chips = $("#chanChips", host);
-  const ordered = [...new Set([...focus, ...reqSignals, ...Object.keys(info.channels)])];
+  const ordered = [...new Set([...focus, ...reqSignals, ...Object.keys(info.channels)])].filter((x) => x in res.signals);
   chips.innerHTML = ordered.map((ch) => `<label><input type="checkbox" value="${ch}" ${focus.includes(ch) ? "checked" : ""}>${ch}</label>`).join("");
+  const setWin = (w) => { win = w; if (own) s.window = w; };
   const draw = () => {
     const box = $("#charts", host);
     box.innerHTML = "";
-    if (win) { $("#w0", host).value = win[0]; $("#w1", host).value = win[1]; }
+    $("#w0", host).value = win ? win[0] : "";
+    $("#w1", host).value = win ? win[1] : "";
     for (const ch of focus) {
       const limits = [];
       reqs.forEach((r) => r.limits.filter((l) => l.signal === ch).forEach((l) => limits.push({ value: l.value, label: `${r.id} ${l.op} ${fmt(l.value)}` })));
@@ -299,29 +608,29 @@ function showBenchResult(host = $("#benchOut"), res = state.bench.last, ref = st
   };
   chips.addEventListener("change", () => {
     focus = [...chips.querySelectorAll("input:checked")].map((i) => i.value);
-    if (!opts.noExport) s.focus = focus;
+    if (own) s.focus = focus;
     draw();
   });
   $("#wApply", host).onclick = () => {
     const a = parseFloat($("#w0", host).value), b = parseFloat($("#w1", host).value);
-    win = isFinite(a) && isFinite(b) && b > a ? [a, b] : null;
-    if (!opts.noExport) s.window = win;
+    setWin(isFinite(a) && isFinite(b) && b > a ? [a, b] : null);
     draw();
   };
-  if ($("#wViol", host)) $("#wViol", host).onclick = () => { win = [Math.max(0, firstV - 0.5), firstV + 1.5]; draw(); };
-  $("#wAll", host).onclick = () => { win = null; if (!opts.noExport) s.window = null; $("#w0", host).value = ""; $("#w1", host).value = ""; draw(); };
+  if ($("#wViol", host)) $("#wViol", host).onclick = () => { setWin([Math.max(0, +(firstV - 0.5).toFixed(2)), +(firstV + 1.5).toFixed(2)]); draw(); };
+  $("#wAll", host).onclick = () => { setWin(null); draw(); };
   host.querySelectorAll("tr[data-req]").forEach((tr) =>
     tr.addEventListener("click", () => {
       const r = reqById(tr.dataset.req);
       const sig = r.limits.map((l) => l.signal).filter((x) => x in res.signals);
       focus = [...new Set([...sig, ...focus])];
+      if (own) s.focus = focus;
       chips.querySelectorAll("input").forEach((i) => (i.checked = focus.includes(i.value)));
       const v = res.verdicts.find((x) => x.id === r.id);
-      if (v.first_violation_t !== null) win = [Math.max(0, v.first_violation_t - 0.5), v.first_violation_t + 1.5];
+      if (v.first_violation_t !== null) setWin([Math.max(0, +(v.first_violation_t - 0.5).toFixed(2)), +(v.first_violation_t + 1.5).toFixed(2)]);
       draw();
       $("#charts", host).scrollIntoView({ behavior: "smooth", block: "start" });
     }));
-  if (!opts.noExport) {
+  if (own) {
     $("#dlCsv", host).onclick = () => {
       const cols = Object.keys(res.signals);
       const lines = ["t," + cols.join(",")].concat(res.t.map((t, i) => [t, ...cols.map((c) => res.signals[c][i] ?? "")].join(",")));
@@ -353,51 +662,70 @@ function renderHunt() {
     <button class="btn primary" id="huntStart">Start a hunt</button></div>` : ""}
   ${h.reveal ? revealHtml(h.reveal) : ""}
   ${h.active ? `<div class="layout"><form class="side" id="huntForm">
-      <label class="f">Test case<select name="case">${caseOptions(h.case || "TC-001")}</select></label>
+      <label class="f">Test case<select name="case">${caseOptions(h.case)}</select></label>
       <div class="f"><span class="f">Tier</span><div class="seg">
-        <label><input type="radio" name="env" value="sil" checked>SiL</label>
-        <label><input type="radio" name="env" value="hil_mock">HiL (mock)</label></div></div>
-      <label class="f">Noise seed (HiL)<input type="number" name="seed" value="0" min="0"></label>
+        <label><input type="radio" name="env" value="sil" ${h.env === "sil" ? "checked" : ""}>SiL</label>
+        <label><input type="radio" name="env" value="hil_mock" ${h.env === "hil_mock" ? "checked" : ""}>HiL (mock)</label></div></div>
+      <label class="f">Noise seed (HiL)<input type="number" name="seed" value="${h.seed}" min="0"></label>
       <button class="btn primary" id="huntRun" type="submit">Run on the hidden change</button>
       <div class="note small">Rig time spent: <b id="rigSpent">${fmt(h.rig || 0)} s</b> over ${h.runs.length} runs</div>
       <label class="f">Your verdict: which feature does it break?<select id="guess">
         <option value="">choose…</option>${h.candidates.map((c) => `<option>${esc(c)}</option>`).join("")}</select></label>
       <button class="btn" type="button" id="reveal">Reveal the change</button>
-      <div class="history" id="hist">${h.runs.map((r, i) => `<button type="button" class="btn sm" data-i="${i}">#${i + 1} ${r.case} · ${r.env === "sil" ? "SiL" : "HiL"} · ${r.res.overall}${r.res.verdicts.some((v) => v.new_vs_released) ? " · new failure" : ""}</button>`).join("")}</div>
+      <div class="history" id="hist">${h.runs.map((r, i) => `<button type="button" class="btn sm${h.shown === i ? " on" : ""}" data-i="${i}">#${i + 1} ${r.case} · ${r.env === "sil" ? "SiL" : `HiL s${r.seed}`} · ${r.res.overall}${r.res.verdicts.some((v) => v.new_vs_released) ? " · new failure" : ""}</button>`).join("")}</div>
     </form><div id="huntOut" class="stack"><div class="empty">Tip: start with cheap SiL runs across different tests. Escalate to HiL
     only when SiL is clean but you suspect timing or noise.</div></div></div>` : ""}`;
   $("#huntStart")?.addEventListener("click", async (e) => {
     busy(e.target, true, "Hiding a change…");
-    const r = await call("hunt_start", { seed: Math.floor(Math.random() * 1e9) });
-    Object.assign(h, { active: true, runs: [], candidates: r.candidates, reveal: null, rig: 0 });
-    renderHunt();
+    try { await actions.huntStart(); } catch (err) { errorNote(view, err); busy(e.target, false); }
   });
   if (!h.active) return;
   const form = $("#huntForm");
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
+  form.addEventListener("change", () => {
     const fd = new FormData(form);
-    const spec = { case: fd.get("case"), env: fd.get("env"), seed: +fd.get("seed") };
-    h.case = spec.case;
-    const btn = $("#huntRun");
-    busy(btn, true, "Running…");
-    try {
-      const res = await call("hunt_run", spec);
-      h.rig = res.hunt.rig_seconds;
-      h.runs.push({ ...spec, res });
-      renderHunt();
-      showBenchResult($("#huntOut"), res, null, { noExport: true });
-    } catch (err) { errorNote($("#huntOut"), err); busy(btn, false); }
+    h.case = fd.get("case");
+    h.env = fd.get("env");
+    h.seed = Math.max(0, Math.round(+fd.get("seed")) || 0);
   });
-  form.querySelectorAll("#hist button").forEach((b) => b.addEventListener("click", () =>
-    showBenchResult($("#huntOut"), h.runs[+b.dataset.i].res, null, { noExport: true })));
-  $("#reveal").addEventListener("click", async () => {
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    doHuntRun().catch(() => {});
+  });
+  form.querySelectorAll("#hist button").forEach((b) => b.addEventListener("click", () => {
+    h.shown = +b.dataset.i;
+    form.querySelectorAll("#hist button").forEach((x) => x.classList.toggle("on", x === b));
+    showBenchResult($("#huntOut"), h.runs[h.shown].res, null, { noExport: true });
+  }));
+  if (h.shown !== null && h.runs[h.shown]) showBenchResult($("#huntOut"), h.runs[h.shown].res, null, { noExport: true });
+  $("#reveal").addEventListener("click", async (e) => {
     const guess = $("#guess").value;
-    if (!guess) { alert("Pick your verdict first."); return; }
-    h.reveal = await call("hunt_reveal", { guess });
-    h.active = false;
-    renderHunt();
+    if (!guess) { errorNote($("#huntOut"), new Error("Pick your verdict first: which feature does the change break?")); return; }
+    busy(e.target, true, "Revealing…");
+    try { await actions.huntReveal(guess); } catch (err) { errorNote($("#huntOut"), err); busy(e.target, false); }
   });
+}
+async function doHuntRun() {
+  const h = state.hunt;
+  const spec = { case: h.case, env: h.env, seed: h.seed };
+  const btn = $("#huntRun");
+  busy(btn, true, "Running…");
+  try {
+    const res = await call("hunt_run", spec);
+    h.rig = res.hunt.rig_seconds;
+    h.runs.push({ ...spec, res });
+    h.shown = h.runs.length - 1;
+    const e = session.record("hunt_run", { sut: "hidden", sutLabel: "hidden change", group: "hunt", test: spec.case, env: res.env, seed: res.seed,
+      overall: res.overall, rig_s: res.rig_seconds, sim_s: res.sim_seconds,
+      newFails: res.verdicts.filter((v) => v.new_vs_released).map((v) => v.id),
+      verdicts: res.verdicts.map((x) => ({ id: x.id, verdict: x.verdict, margin: x.margin, t: x.first_violation_t })) });
+    toast(`Hunt run #${e.n} added to your <a href="#/report">Session Report</a>.`);
+    if (currentRoute() === "hunt") renderHunt();
+    return res;
+  } catch (err) {
+    errorNote($("#huntOut"), err);
+    busy(btn, false);
+    throw err;
+  }
 }
 function revealHtml(r) {
   return `<div class="note ${r.correct ? "good" : "bad"}"><h3>${r.correct ? "Correct." : "Not quite."} The change was
@@ -410,7 +738,7 @@ function revealHtml(r) {
 }
 document.addEventListener("click", (e) => {
   const a = e.target.closest("#toCi");
-  if (a) state.ci.change = a.dataset.change;
+  if (a) { state.ci.change = a.dataset.change; state.ci.result = null; }
 });
 
 // ------------------------------------------------------------------ falsifier
@@ -436,33 +764,43 @@ function renderFalsify() {
       <label class="f">Seed<input type="number" name="seed" value="${f.seed}" min="0"></label></div>
     <button class="btn primary" id="fzRun" type="submit">Search</button>
     <p class="help">Stops at the first counterexample. Each simulation takes a fraction of a second to a few seconds.</p>
-  </form><div class="stack"><div id="fzChart"></div><div id="fzOut"></div></div></div>`;
+  </form><div class="stack"><div id="fzChart"></div><div id="fzOut">${f.result ? "" : '<div class="empty">Start a search to watch the margin fall.</div>'}</div></div></div>`;
   const form = $("#fzForm");
   form.addEventListener("change", (e) => {
     const fd = new FormData(form);
-    Object.assign(f, { template: fd.get("template"), sut: fd.get("sut"), strategy: fd.get("strategy"), budget: +fd.get("budget"), seed: +fd.get("seed") });
-    if (e.target.name === "template") renderFalsify();
+    Object.assign(f, { template: fd.get("template"), sut: fd.get("sut"), strategy: fd.get("strategy"),
+      budget: Math.max(5, Math.min(80, Math.round(+fd.get("budget")) || 30)), seed: Math.max(0, Math.round(+fd.get("seed")) || 0) });
+    if (e.target.name === "template") { f.result = null; renderFalsify(); }
   });
   if (f.result) showFalsify(f.result);
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = $("#fzRun");
-    busy(btn, true, "Searching…");
-    const samples = [];
-    $("#fzOut").innerHTML = "";
-    progressChart($("#fzChart"), { samples, budget: f.budget });
-    try {
-      f.result = await call("falsify", { template: f.template, sut: f.sut, strategy: f.strategy, budget: f.budget, seed: f.seed }, (p) => {
-        samples.push(p.robustness);
-        progressChart($("#fzChart"), { samples, budget: f.budget, title: `Search progress · simulation ${p.i} of ${p.budget}` });
-      });
-      showFalsify(f.result);
-    } catch (err) { errorNote($("#fzOut"), err); } finally { busy(btn, false); }
-  });
+  form.addEventListener("submit", (e) => { e.preventDefault(); doFalsify().catch(() => {}); });
+}
+async function doFalsify() {
+  const f = state.falsify;
+  const btn = $("#fzRun");
+  busy(btn, true, "Searching…");
+  const samples = [];
+  if ($("#fzOut")) $("#fzOut").innerHTML = "";
+  const chart = () => (currentRoute() === "falsify" ? $("#fzChart") : null);
+  if (chart()) progressChart(chart(), { samples, budget: f.budget });
+  const spec = { template: f.template, sut: f.sut, strategy: f.strategy, budget: f.budget, seed: f.seed };
+  try {
+    const r = await call("falsify", spec, (p) => {
+      samples.push(p.robustness);
+      if (chart()) progressChart(chart(), { samples, budget: f.budget, title: `Search progress · simulation ${p.i} of ${p.budget}` });
+    });
+    f.result = { ...r, budget: f.budget, spec };
+    session.record("falsify", { ...spec, sutLabel: verLabel(f.sut), found: r.found, sims: r.sims, best: r.best.robustness, per_target: r.best.per_target });
+    if (currentRoute() === "falsify" && $("#fzOut")) showFalsify(f.result);
+    toast(`Search added to your <a href="#/report">Session Report</a>.`);
+    return r;
+  } catch (err) {
+    errorNote($("#fzOut"), err);
+    throw err;
+  } finally { busy(btn, false); }
 }
 function showFalsify(r) {
-  const f = state.falsify;
-  progressChart($("#fzChart"), { samples: r.samples, budget: f.budget, title: `Search finished · ${r.sims} simulations` });
+  progressChart($("#fzChart"), { samples: r.samples, budget: r.budget, title: `Search finished · ${r.sims} simulations` });
   $("#fzOut").innerHTML = `
     <div class="note ${r.found ? "bad" : "good"}"><h3>${r.found ? `Counterexample found after ${r.sims} simulations` : `No counterexample in ${r.sims} simulations`}</h3>
     <p>${r.found ? "This scenario breaks a requirement. Replay it on the Test Bench, then keep it as a regression test." :
@@ -474,8 +812,9 @@ function showFalsify(r) {
       ${r.regression_test_yaml ? '<button class="btn" id="dlYaml">Download as regression test (YAML)</button>' : ""}</div>
     <details><summary class="small">Scenario found</summary><pre>${esc(JSON.stringify(r.best.scenario, null, 2))}</pre></details>`;
   $("#toBench").onclick = () => {
-    Object.assign(state.bench, { scenario: r.best.scenario, sut: f.sut, env: "sil", seed: 0, overlay: true, focus: null, window: null, autorun: true, last: null });
-    location.hash = "#/bench";
+    state.bench.focus = null;
+    actions.runTest({ scenario: r.best.scenario, sut: r.spec.sut, env: "sil", seed: 0, overlay: true, window: null },
+      `Falsifier ${r.spec.template}`).catch(() => {});
   };
   if ($("#dlYaml")) $("#dlYaml").onclick = () => download("regression_test.yaml", r.regression_test_yaml, "text/yaml");
 }
@@ -492,6 +831,7 @@ function renderCI() {
   const changes = info.versions.filter((v) => v.group === "seeded bug" || v.group === "clean change");
   const ch = changes.find((v) => v.id === c.change) || changes[0];
   const b = info.results.benchmark;
+  const tried = session.log.entries.filter((e) => e.kind === "ci" && e.change === ch.id);
   view.innerHTML = `
   <h1>CI Orchestrator</h1>
   <p class="lede">Every software change is a CI event. Running everything on the HiL rig is safe but slow; the question is
@@ -505,6 +845,8 @@ function renderCI() {
     <label class="f">Noise seed set<input type="number" name="seed" value="${c.seed}" min="0"></label>
     <button class="btn primary" id="ciRun" type="submit">Run the CI cycle</button>
     <p class="help">Runs every test the policy selects on SiL and the HiL mock: from a few to ~60 simulations, so it can take a minute in the browser.</p>
+    ${tried.length ? `<div class="small"><b>Your cycles on ${esc(ch.id)}</b><div class="tw"><table class="small"><thead><tr><th>Policy</th><th>Seed</th><th>Result</th><th>Rig-min</th></tr></thead><tbody>
+      ${tried.map((t) => `<tr><td>${t.policy}</td><td>${t.seed}</td><td>${t.detected ? "red" : t.buggy ? "green (missed)" : "green"}</td><td class="num">${fmt(t.hil_minutes)}</td></tr>`).join("")}</tbody></table></div></div>` : ""}
   </form><div id="ciOut" class="stack">${c.result ? "" : '<div class="empty">Run a CI cycle to see the schedule.</div>'}</div></div>
   ${b ? `<h2>Published benchmark: all 19 changes × 4 policies × 3 noise seed sets</h2>
   <div class="tw"><table><thead><tr><th>Seed set</th><th>Policy</th><th>Bugs found</th><th>SiL-observable</th><th>HiL-only</th><th>False alarms</th><th>HiL min / change</th><th>Clean-change verdict (min)</th></tr></thead><tbody>
@@ -513,21 +855,31 @@ function renderCI() {
   const form = $("#ciForm");
   form.addEventListener("change", (e) => {
     const fd = new FormData(form);
-    Object.assign(c, { change: fd.get("change"), policy: fd.get("policy"), seed: +fd.get("seed") });
-    if (e.target.name === "change") renderCI();
+    Object.assign(c, { change: fd.get("change"), policy: fd.get("policy"), seed: Math.max(0, Math.round(+fd.get("seed")) || 0) });
+    if (e.target.name === "change") { c.result = null; renderCI(); }
   });
-  if (c.result) showCI(c.result);
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = $("#ciRun");
-    busy(btn, true, "Running CI…");
-    try {
-      c.result = await call("orchestrate", { change: c.change, policy: c.policy, seed: c.seed }, (p) => {
-        btn.innerHTML = `<span class="spinner"></span> ${p.simulations} simulations…`;
-      });
-      showCI(c.result);
-    } catch (err) { errorNote($("#ciOut"), err); } finally { busy(btn, false); }
-  });
+  if (c.result && c.result.change === ch.id) showCI(c.result);
+  form.addEventListener("submit", (e) => { e.preventDefault(); doCI().catch(() => {}); });
+}
+async function doCI() {
+  const c = state.ci;
+  const btn = $("#ciRun");
+  busy(btn, true, "Running CI…");
+  const spec = { change: c.change, policy: c.policy, seed: c.seed };
+  try {
+    const r = await call("orchestrate", spec, (p) => {
+      if (btn && btn.isConnected) btn.innerHTML = `<span class="spinner"></span> ${p.simulations} simulations…`;
+    });
+    c.result = r;
+    session.record("ci", { ...spec, buggy: r.buggy, detected: r.detected, detected_in: r.detected_in, hil_minutes: r.hil_minutes,
+      makespan_s: r.makespan_s, sil_jobs: r.sil_jobs, hil_jobs: r.hil_jobs, escalated: Object.keys(r.escalations).length });
+    if (currentRoute() === "ci") renderCI();
+    toast(`CI cycle added to your <a href="#/report">Session Report</a>.`);
+    return r;
+  } catch (err) {
+    errorNote($("#ciOut"), err);
+    throw err;
+  } finally { busy(btn, false); }
 }
 function showCI(r) {
   const out = $("#ciOut");
@@ -547,7 +899,10 @@ function showCI(r) {
 }
 
 // ------------------------------------------------------------------ requirements + STL playground
+const STL_EXAMPLES = ["always(v_bus <= 812)", "always(implies(brake >= 0.5, eventually(decel_error <= 0.02, 0, 0.05)))",
+                      "eventually(v_kph >= 100, 0, 5)", "always(t_inv <= 90)"];
 function renderRequirements() {
+  const last = state.bench.last;
   view.innerHTML = `
   <h1>Requirements</h1>
   <p class="lede">Each requirement is a Signal Temporal Logic formula over the logged signals. <code>always(φ)</code> must hold at
@@ -555,30 +910,48 @@ function renderRequirements() {
   holds. Robustness is divided by a per-signal scale, so margins of volts and degrees are comparable.</p>
   <h2>Write your own</h2>
   <div class="layout"><div class="side">
-    <label class="f">STL formula<textarea id="stlText">always(v_bus <= 812)</textarea></label>
-    <div class="row">${["always(v_bus <= 812)", "always(implies(brake >= 0.5, eventually(decel_error <= 0.02, 0, 0.05)))", "eventually(v_kph >= 100, 0, 5)", "always(t_inv <= 90)"]
-      .map((ex) => `<button class="btn sm ex" type="button">${esc(ex)}</button>`).join("")}</div>
-    <button class="btn primary" id="stlRun">Evaluate on the last Test Bench run</button>
-    <p class="help">Signals: ${Object.keys(info.channels).map((c) => `<code>${c}</code>`).join(" ")}</p>
+    <label class="f">STL formula<textarea id="stlText" spellcheck="false">${esc(state.stl.formula)}</textarea></label>
+    <div class="row">${STL_EXAMPLES.map((ex) => `<button class="btn sm ex" type="button">${esc(ex)}</button>`).join("")}</div>
+    <button class="btn primary" id="stlRun">Evaluate on the last run</button>
+    <p class="help">${last || state.hunt.runs.length ? "Evaluates against the most recent Test Bench or Bug Hunt run." : "Run a test on the Test Bench first."}
+      Signals: ${Object.keys(info.channels).map((c) => `<code>${c}</code>`).join(" ")}</p>
   </div><div id="stlOut" class="stack"><div class="empty">Run a test on the Test Bench, then evaluate a formula against its trace.</div></div></div>
   <h2>The specification</h2>
   <div class="tw"><table><thead><tr><th>ID</th><th>Requirement</th><th>Formal (STL)</th><th>Crit.</th><th>Needs</th><th>Features</th></tr></thead><tbody>
-  ${info.requirements.map((r) => `<tr><td><b>${r.id}</b></td><td>${esc(r.title)}</td><td><code>${esc(r.stl)}</code></td><td>${r.criticality}</td>
+  ${info.requirements.map((r) => `<tr><td><b>${r.id}</b></td><td>${esc(r.title)}</td><td><code class="usestl" title="Click to load into the playground">${esc(r.stl)}</code></td><td>${r.criticality}</td>
     <td>${r.fidelity === "hil" ? "HiL" : "SiL"}</td><td>${r.features.map((f) => `<span class="tag">${f}</span>`).join("")}</td></tr>`).join("")}
   </tbody></table></div>`;
-  view.querySelectorAll(".ex").forEach((b) => b.addEventListener("click", () => ($("#stlText").value = b.textContent)));
-  $("#stlRun").addEventListener("click", async (e) => {
-    const out = $("#stlOut");
-    busy(e.target, true, "Evaluating…");
-    try {
-      const r = await call("stl_eval", { formula: $("#stlText").value });
-      out.innerHTML = `<div class="banner"><span class="big">${chip(r.verdict)}</span><span>robustness <b>${fmt(r.robustness)}</b>
-        ${r.first_violation_t !== null ? ` · first violation at ${fmt(r.first_violation_t)} s` : ""}</span>
-        <span class="muted small">on the last run (${esc(state.bench.last ? state.bench.last.sut : "")}); signals used: ${r.signals.join(", ")}</span></div>`;
-      lineChart(out, { title: "Robustness over time", unit: "scaled margin (below 0 = violated)", series: [{ name: "ρ(t)", t: r.t, y: r.rho }],
-                       limits: [{ value: 0, label: "0 = violation" }], marker: r.first_violation_t });
-    } catch (err) { out.innerHTML = ""; errorNote(out, err); } finally { busy(e.target, false); }
-  });
+  const ta = $("#stlText");
+  ta.addEventListener("input", () => (state.stl.formula = ta.value));
+  view.querySelectorAll(".ex").forEach((b) => b.addEventListener("click", () => { ta.value = b.textContent; state.stl.formula = ta.value; }));
+  view.querySelectorAll(".usestl").forEach((c) => c.addEventListener("click", () => {
+    if (!/^KPI/.test(c.textContent)) { ta.value = c.textContent; state.stl.formula = ta.value; ta.scrollIntoView({ block: "center" }); }
+  }));
+  $("#stlRun").addEventListener("click", () => doStl().catch(() => {}));
+  if (state.stl.result) showStl(state.stl.result);
+}
+async function doStl() {
+  const btn = $("#stlRun");
+  const out = $("#stlOut");
+  busy(btn, true, "Evaluating…");
+  try {
+    const r = await call("stl_eval", { formula: state.stl.formula });
+    state.stl.result = r;
+    session.record("stl", { formula: state.stl.formula, trace: r.trace, verdict: r.verdict, robustness: r.robustness, t: r.first_violation_t });
+    if (currentRoute() === "requirements") showStl(r);
+    return r;
+  } catch (err) {
+    if (out) { out.innerHTML = ""; errorNote(out, err); }
+    throw err;
+  } finally { busy(btn, false); }
+}
+function showStl(r) {
+  const out = $("#stlOut");
+  out.innerHTML = `<div class="banner"><span class="big">${chip(r.verdict)}</span><span>robustness <b>${fmt(r.robustness)}</b>
+    ${r.first_violation_t !== null ? ` · first violation at ${fmt(r.first_violation_t)} s` : ""}</span>
+    <span class="muted small">on ${esc(r.trace)}; signals used: ${r.signals.join(", ")}</span></div>`;
+  lineChart(out, { title: "Robustness over time", unit: "scaled margin (below 0 = violated)", series: [{ name: "ρ(t)", t: r.t, y: r.rho }],
+                   limits: [{ value: 0, label: "0 = violation" }], marker: r.first_violation_t });
 }
 
 // ------------------------------------------------------------------ findings
@@ -591,10 +964,75 @@ function renderFindings() {
     <span class="tag">found by: ${esc(f.found_by)}</span></header>
     <p>${esc(f.story)}</p><p class="muted"><b>Fix:</b> ${esc(f.fix)}</p>
     <button class="btn primary replay" data-id="${f.id}">Replay ${f.id} on the Test Bench</button></article>`).join("")}</div>`;
-  view.querySelectorAll(".replay").forEach((b) => b.addEventListener("click", () => {
-    const f = info.findings.find((x) => x.id === b.dataset.id).reproduce;
-    Object.assign(state.bench, { scenario: null, case: f.case, sut: f.sut, env: f.env, seed: f.seed || 0, overrides: f.overrides || {},
-      overlay: true, focus: f.focus, window: f.window, autorun: true, last: null, ref: null });
-    location.hash = "#/bench";
+  view.querySelectorAll(".replay").forEach((b) => b.addEventListener("click", () => actions.replayFinding(b.dataset.id).catch(() => {})));
+}
+
+// ------------------------------------------------------------------ session report
+function renderReport() {
+  const entries = session.log.entries;
+  const st = session.stats();
+  const ins = session.insights(entries, info);
+  const cov = session.coverage();
+  const tiles = [
+    ["Test runs", st.tests, `${st.sil} SiL · ${st.hil} HiL mock`],
+    ["Failed runs", st.failedRuns, `${st.failedChecks} of ${st.checks} requirement checks failed`],
+    ["HiL rig time", `${Math.round(st.rigSeconds)} s`, st.ciRigMinutes ? `+ ${fmt(st.ciRigMinutes)} rig-min in CI cycles` : "in test runs"],
+    ["Counterexamples", st.counterexamples, `from ${st.searches} falsifier search${st.searches === 1 ? "" : "es"}`],
+    ["CI cycles", st.ciCycles, st.ciCycles ? `${session.log.entries.filter((e) => e.kind === "ci" && e.detected).length} red builds` : "none yet"],
+    ["Bug hunts", `${st.huntsCorrect}/${st.hunts}`, "solved"],
+  ];
+  const runs = entries.filter((e) => e.kind === "run" || e.kind === "hunt_run");
+  view.innerHTML = `
+  <h1>Session Report</h1>
+  <p class="lede">A live record of what <b>you</b> did in this browser: every test, search, CI cycle, bug hunt and formula, with
+  the evidence it produced. It updates as you work and survives a reload. The
+  <a href="report.html">project evidence report</a> is the separate, pre-built record of the published benchmark.</p>
+  <div class="row"><button class="btn primary" id="dlHtml" ${entries.length ? "" : "disabled"}>Download report (HTML)</button>
+    <button class="btn" id="dlJson" ${entries.length ? "" : "disabled"}>Session JSON</button>
+    <button class="btn" id="dlJunit" ${runs.length ? "" : "disabled"}>JUnit XML (all runs)</button>
+    <button class="btn" id="clearLog" ${entries.length ? "" : "disabled"}>Clear session</button>
+    <span class="muted small">Started ${esc(new Date(session.log.started).toLocaleString())}</span></div>
+  ${!entries.length ? `<div class="empty" style="margin-top:16px">Nothing recorded yet. Every action you take shows up here.<br><br>
+    <span class="row" style="justify-content:center">
+      <button class="btn primary" data-do="replay">Replay finding F-002</button>
+      <button class="btn" data-do="bench">Run a test</button>
+      <button class="btn" data-do="hunt">Start a bug hunt</button></span></div>` : `
+  <div class="tiles">${tiles.map(([k, v, d]) => `<div class="tile"><span class="muted small">${k}</span><b>${esc(v)}</b><span class="muted small">${esc(d)}</span></div>`).join("")}</div>
+  <h2>What your session shows</h2>
+  <div class="stack" id="insights">${ins.map((i) => `<div class="note ${i.tone === "good" ? "good" : i.tone === "bad" ? "bad" : ""}">${esc(i.text)}</div>`).join("")}</div>
+  ${cov.length ? `<h2>Requirement coverage</h2>
+  <div class="tw"><table><thead><tr><th>Requirement</th><th>Checks</th><th>Failed</th><th>Inconclusive</th><th>Thinnest margin</th><th>Caught</th></tr></thead><tbody>
+  ${cov.map((c) => `<tr><td><b>${c.id}</b> <span class="muted">${esc(reqById(c.id)?.title)}</span></td><td class="num">${c.checks}</td>
+    <td class="num">${c.fails ? `<b style="color:var(--crit)">${c.fails}</b>` : 0}</td><td class="num">${c.inconclusive}</td>
+    <td class="num">${marginBar(c.worst)} <div class="small muted">${esc(c.worstOn)}</div></td><td class="small">${esc(c.caught.join(", "))}</td></tr>`).join("")}
+  </tbody></table></div>
+  <p class="muted small">${info.requirements.length - cov.length} of ${info.requirements.length} requirements not checked yet in this session.</p>` : ""}
+  <h2>Activity</h2>
+  <div class="tw"><table id="activity"><thead><tr><th>#</th><th>Time</th><th>What happened</th><th></th></tr></thead><tbody>
+  ${[...entries].reverse().map((e) => `<tr><td class="num">${e.n}</td><td class="num">${esc(new Date(e.at).toLocaleTimeString())}</td>
+    <td>${e.overall ? chip(e.overall) + " " : ""}${esc(session.describe(e))}</td>
+    <td>${e.kind === "run" && e.spec ? `<button class="btn sm rerun" data-n="${e.n}">Run again</button>` : ""}</td></tr>`).join("")}
+  </tbody></table></div>`}`;
+  const dl = (id, fn) => { const b = $(id); if (b) b.onclick = fn; };
+  const stamp = () => new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+  dl("#dlHtml", () => download(`volttrace_session_${stamp()}.html`, session.toHTML(session.log.entries, info), "text/html"));
+  dl("#dlJson", () => download(`volttrace_session_${stamp()}.json`, session.toJSON(), "application/json"));
+  dl("#dlJunit", () => download(`volttrace_session_${stamp()}.xml`, session.toJUnit(), "application/xml"));
+  dl("#clearLog", () => { if (confirm("Clear the whole session log? Downloads you already made are not affected.")) session.clear(); });
+  view.querySelectorAll("[data-do]").forEach((b) => b.addEventListener("click", () => {
+    const d = b.dataset.do;
+    if (d === "replay") actions.replayFinding("F-002").catch(() => {});
+    else if (d === "bench") actions.runTest({}).catch(() => {});
+    else actions.huntStart().catch(() => {});
+  }));
+  view.querySelectorAll(".rerun").forEach((b) => b.addEventListener("click", () => {
+    const e = session.log.entries.find((x) => x.n === +b.dataset.n);
+    const sp = e.spec;
+    actions.runTest({ case: sp.scenario ? null : sp.case, scenario: sp.scenario || null, overrides: sp.scenario ? null : sp.overrides || {},
+      sut: sp.sut, env: sp.env, seed: sp.seed },
+      `Re-run of #${e.n}`).catch(() => {});
   }));
 }
+
+// ------------------------------------------------------------------ assistant
+mountAssistant(actions);

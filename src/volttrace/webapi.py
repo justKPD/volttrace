@@ -239,6 +239,7 @@ class Engine:
         self.cases = {d["id"]: d for d in bundle["catalog"]}
         self.templates = {d["id"]: d for d in bundle["templates"]}
         self.last_trace: Trace | None = None
+        self.last_label = ""
         self._hunt: dict[str, Any] | None = None
 
     # -- metadata ------------------------------------------------------------
@@ -308,6 +309,7 @@ class Engine:
         seed = int(spec.get("seed", 0))
         trace = simulate(Scenario.from_dict(scn), factory_for(sut), sut_name=sut, env=env, seed=seed)
         self.last_trace = trace
+        self.last_label = f"{sut} on {env.name}" + (f" (seed {seed})" if env.name != "sil" else "")
         results = evaluate(trace, self.reqset, req_ids)
         ref_fail: set[str] = set()
         if spec.get("compare_reference") and sut != "baseline":
@@ -365,6 +367,7 @@ class Engine:
             "t": t,
             "rho": ys["rho"],
             "signals": sorted(phi.signals()),
+            "trace": self.last_label,
         }
 
     # -- falsifier -----------------------------------------------------------
@@ -459,6 +462,9 @@ class Engine:
         self._hunt["rig_seconds"] += out["rig_seconds"]
         self._hunt["runs"] += 1
         out["sut"] = "hidden"
+        self.last_label = f"the hidden change on {out['env']}" + (
+            f" (seed {out['seed']})" if out["env"] != "sil" else ""
+        )
         out["hunt"] = {"rig_seconds": round(self._hunt["rig_seconds"], 1), "runs": self._hunt["runs"]}
         return out
 
