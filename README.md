@@ -38,11 +38,11 @@ no server and nothing precomputed except the 15-minute multi-seed benchmark.
 
 **Ask VoltTrace** (bottom right) drives all of it in plain words: *"replay F-002"*, *"run TC-003 with M07 on HiL seed 2"*,
 *"zoom to violation"*, *"falsify M09 with cem"*, *"ci M05 policy D"*, *"start a hunt"*, *"always(v_bus <= 812)"*,
-*"summary"*. The built-in mode works offline. An optional Claude mode (your own API key, kept only in your browser)
-plans multi-step requests, using the same actions as tools.
+*"summary"*, and chains steps: *"run TC-003 with M07 then zoom to violation"*. An **All features** menu lists every
+command. It runs entirely in the browser, with no account or key.
 
 Run it locally with the engine in your own Python process: `pip install -e . && volttrace serve` → http://127.0.0.1:8000.
-Every push rebuilds the Studio and boots the **static** site in Chromium, where 67 end-to-end checks covering every page,
+Every push rebuilds the Studio and boots the **static** site in Chromium, where 70 end-to-end checks covering every page,
 export, finding replay, the session report and the assistant must pass (`scripts/studio_e2e.py`) before it deploys.
 The pre-built project [evidence report](https://justkpd.github.io/volttrace/report.html) sits next to it.
 

@@ -1,17 +1,12 @@
-/* "Ask VoltTrace": a chat panel that drives the Studio. The built-in mode understands plain commands offline
-   ("replay F-002", "run TC-003 with M07 on HiL seed 2", "falsify M09 with cem"); the optional Claude mode
-   (your own API key, kept in this browser) plans multi-step requests with the same actions as tools. */
+/* "Ask VoltTrace": one chat panel that drives every feature of the Studio from plain commands
+   ("replay F-002", "run TC-003 with M07 on HiL seed 2 then zoom to violation", "falsify M09 with cem").
+   It runs entirely in the browser: no account, no key, no server. */
 
 import { fmt } from "./charts.js";
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const sgn = (v) => (v === null || v === undefined ? "n/a" : (v >= 0 ? "+" : "") + fmt(v));
 const tierName = (env) => (env === "sil" ? "SiL" : "HiL mock");
-const MODE_KEY = "volttrace.assistant.mode";
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { /* storage blocked */ } },
-};
 
 // ------------------------------------------------------------------ vocabulary
 const PAGES = [
@@ -54,6 +49,7 @@ export function helpHtml() {
     <li><code>start a hunt</code> · <code>try TC-005 on hil</code> · <code>guess voltage_guard</code></li>
     <li><code>always(v_bus &lt;= 812)</code> · evaluate any STL formula on the last run</li>
     <li><code>summary</code> · what your session shows · <code>download report</code></li>
+    <li><code>run TC-003 with M07 then zoom to violation</code> · chain steps with <code>then</code></li>
     <li><code>explain inconclusive</code> · margin, STL, SiL vs HiL, policies</li>
   </ul>`;
 }
@@ -302,7 +298,20 @@ export async function execute(cmd, A) {
 }
 
 // ------------------------------------------------------------------ the panel
+const MENU = [
+  ["Run a test", ["run TC-001", "run TC-003 with M07", "run TC-005 on HiL seed 2", "run TC-002 with M09 soc 95% ageing 1.8 compare"]],
+  ["Findings", ["replay F-001", "replay F-002", "replay F-003", "replay F-004", "replay F-005", "replay F-006"]],
+  ["Plots", ["zoom to violation", "zoom 4 to 6", "whole run", "show v_bus and i_bat"]],
+  ["Falsifier", ["falsify M09", "falsify M09 with cem budget 40", "falsify released", "open the counterexample on the bench"]],
+  ["CI", ["ci M05 policy C", "ci M12 policy D", "ci C01 policy A"]],
+  ["Bug Hunt", ["start a hunt", "try TC-002 on SiL", "try TC-005 on HiL", "guess …"]],
+  ["Requirements", ["always(v_bus <= 812)", "eventually(v_kph >= 100, 0, 5)", "open requirements"]],
+  ["Report", ["summary", "download report", "open report"]],
+  ["Explain", ["explain margin", "explain inconclusive", "explain SiL vs HiL", "explain policies"]],
+];
+
 export function mountAssistant(A) {
+  try { localStorage.removeItem("volttrace.anthropicKey"); localStorage.removeItem("volttrace.assistant.mode"); } catch { /* storage blocked */ }
   const fab = document.createElement("button");
   fab.className = "ask-fab";
   fab.id = "askFab";
@@ -315,27 +324,18 @@ export function mountAssistant(A) {
   panel.setAttribute("aria-label", "VoltTrace assistant");
   panel.innerHTML = `
     <header><b>Ask VoltTrace</b>
-      <div class="seg mini" role="radiogroup" aria-label="Assistant mode">
-        <label><input type="radio" name="askMode" value="local">Built-in</label>
-        <label><input type="radio" name="askMode" value="claude">Claude</label></div>
+      <button type="button" class="btn sm" id="askMenuBtn" aria-expanded="false">All features</button>
       <button type="button" class="btn sm" id="askClose" aria-label="Close">✕</button></header>
-    <div class="ask-key" id="askKey" hidden>
-      <p class="small">Claude mode plans multi-step requests ("compare M09 on SiL and HiL, then search for a counterexample").
-      It needs your own Anthropic API key. The key stays in this browser's storage and is sent only to api.anthropic.com;
-      calls are billed to your account. Server-side refusal fallbacks are enabled.</p>
-      <div class="row"><input type="password" id="askKeyInput" placeholder="sk-ant-…" autocomplete="off" style="flex:1;min-width:0">
-        <button type="button" class="btn sm primary" id="askKeySave">Use key</button></div>
-    </div>
+    <div class="ask-menu" id="askMenu" hidden>${MENU.map(([group, items]) => `<div class="grp"><b>${esc(group)}</b>
+      <div class="row">${items.map((t) => `<button type="button" class="btn sm">${esc(t)}</button>`).join("")}</div></div>`).join("")}</div>
     <div class="ask-log" id="askLog" aria-live="polite"></div>
     <div class="ask-sugg" id="askSugg"></div>
-    <form id="askForm" class="ask-form"><input id="askInput" type="text" autocomplete="off" placeholder="e.g. replay F-002, or run TC-003 with M07 on HiL">
+    <form id="askForm" class="ask-form"><input id="askInput" type="text" autocomplete="off" placeholder="e.g. replay F-002, then zoom to violation">
       <button class="btn primary" type="submit" id="askSend">Send</button></form>
-    <div class="ask-foot small muted" id="askFoot"></div>`;
+    <div class="ask-foot small muted">Chain steps with <code>then</code>. Everything runs in your browser.</div>`;
   document.body.append(fab, panel);
   const $ = (s) => panel.querySelector(s);
   const logBox = $("#askLog");
-  let mode = store.get(MODE_KEY) === "claude" ? "claude" : "local";
-  let claude = null; // the lazily loaded Claude module
   let busyNow = false;
 
   const scroll = () => (logBox.scrollTop = logBox.scrollHeight);
@@ -347,40 +347,27 @@ export function mountAssistant(A) {
     scroll();
     return d;
   }
+  const pick = (t) => {
+    if (t.endsWith("…")) { $("#askInput").value = t.replace("…", ""); $("#askInput").focus(); } else send(t);
+  };
   function suggest(list) {
     $("#askSugg").innerHTML = list.map((s) => `<button type="button" class="btn sm">${esc(s)}</button>`).join("");
-    $("#askSugg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
-      const t = b.textContent;
-      if (t.endsWith("…")) { $("#askInput").value = t.replace("…", ""); $("#askInput").focus(); } else send(t);
-    }));
+    $("#askSugg").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => pick(b.textContent)));
   }
-  function setMode(m) {
-    mode = m;
-    store.set(MODE_KEY, m);
-    panel.querySelectorAll("input[name=askMode]").forEach((i) => (i.checked = i.value === m));
-    const key = store.get("volttrace.anthropicKey");
-    $("#askKey").hidden = !(m === "claude" && !key);
-    $("#askFoot").innerHTML = m === "claude" ? (key ? 'Claude mode · <a href="#" id="askForget">forget key</a> · <a href="#" id="askReset">new conversation</a>' : "") :
-      "Built-in mode works offline. Type <code>help</code> for everything it understands.";
-    $("#askForget")?.addEventListener("click", (e) => { e.preventDefault(); store.set("volttrace.anthropicKey", null); claude?.reset(); setMode("claude"); });
-    $("#askReset")?.addEventListener("click", (e) => { e.preventDefault(); claude?.reset(); bubble("bot", "New conversation started."); });
-  }
-  panel.querySelectorAll("input[name=askMode]").forEach((i) => i.addEventListener("change", () => setMode(i.value)));
-  $("#askKeySave").addEventListener("click", () => {
-    const k = $("#askKeyInput").value.trim();
-    if (!/^sk-ant-/.test(k)) { bubble("bot err", "That does not look like an Anthropic API key (it starts with <code>sk-ant-</code>)."); return; }
-    store.set("volttrace.anthropicKey", k);
-    $("#askKeyInput").value = "";
-    setMode("claude");
-    bubble("bot", "Key saved in this browser. Ask me anything about the Studio.");
-  });
+  const menu = (on) => {
+    $("#askMenu").hidden = !on;
+    $("#askMenuBtn").setAttribute("aria-expanded", String(on));
+    $("#askMenuBtn").classList.toggle("on", on);
+  };
+  $("#askMenuBtn").addEventListener("click", () => menu($("#askMenu").hidden));
+  $("#askMenu").querySelectorAll("button").forEach((b) => b.addEventListener("click", () => { menu(false); pick(b.textContent); }));
   const open = (on) => {
     panel.hidden = !on;
     fab.hidden = on;
     if (on) {
       if (!logBox.children.length) {
-        bubble("bot", "Hi! I can run anything in the Studio for you: tests, findings, the falsifier, CI cycles, bug hunts and STL checks. Tell me what you want in plain words.");
-        suggest(["replay F-002", "run TC-003 with M07", "falsify M09", "ci M05 policy C", "start a hunt", "help"]);
+        bubble("bot", "Hi! I run everything in the Studio for you: tests, findings, plots, the falsifier, CI cycles, bug hunts, STL checks and your report. Type in plain words, tap <b>All features</b>, or chain steps: <i>run TC-003 with M07 then zoom to violation</i>.");
+        suggest(["replay F-002", "run TC-003 with M07", "falsify M09", "ci M05 policy C", "start a hunt", "summary"]);
       }
       $("#askInput").focus();
     }
@@ -389,6 +376,22 @@ export function mountAssistant(A) {
   $("#askClose").addEventListener("click", () => open(false));
   $("#askForm").addEventListener("submit", (e) => { e.preventDefault(); send($("#askInput").value); });
 
+  async function step(text) {
+    const pending = bubble("bot", '<span class="spinner"></span> Working…');
+    try {
+      const cmd = interpret(text, A);
+      if (!cmd) { pending.remove(); return true; }
+      if (cmd.reply) { pending.innerHTML = cmd.reply; suggest(["help", "replay F-002", "summary"]); return true; }
+      const res = await execute(cmd, A);
+      pending.innerHTML = resultHtml(cmd.act, res, A);
+      suggest(followUps(cmd.act, res, A));
+      return true;
+    } catch (err) {
+      pending.classList.add("err");
+      pending.innerHTML = esc(err.message || String(err));
+      return false;
+    }
+  }
   async function send(text) {
     text = String(text || "").trim();
     if (!text || busyNow) return;
@@ -396,36 +399,15 @@ export function mountAssistant(A) {
     bubble("me", esc(text));
     busyNow = true;
     $("#askSend").disabled = true;
-    const pending = bubble("bot", '<span class="spinner"></span> Working…');
     try {
-      if (mode === "claude" && store.get("volttrace.anthropicKey")) {
-        claude ||= await import("./claude.js");
-        pending.remove();
-        await claude.turn(text, A, {
-          key: store.get("volttrace.anthropicKey"),
-          text: (t) => bubble("bot", esc(t).replace(/\n/g, "<br>").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")),
-          tool: (name, input) => bubble("tool", `→ ${esc(name)} ${esc(JSON.stringify(input))}`),
-          note: (html) => bubble("bot note", html),
-        });
-        suggest(["summary", "help"]);
-      } else {
-        const cmd = interpret(text, A);
-        if (!cmd) { pending.remove(); return; }
-        if (cmd.reply) { pending.innerHTML = cmd.reply; suggest(["help", "replay F-002", "summary"]); return; }
-        const res = await execute(cmd, A);
-        pending.innerHTML = resultHtml(cmd.act, res, A);
-        suggest(followUps(cmd.act, res, A));
-      }
-    } catch (err) {
-      pending.classList.add("err");
-      pending.innerHTML = esc(err.message || String(err));
-      if (pending.isConnected === false) bubble("bot err", esc(err.message || String(err)));
+      // "run TC-003 with M07 then zoom to violation": one step at a time, stop at the first error
+      const steps = /\b(always|eventually)\s*\(/i.test(text) ? [text] : text.split(/\s*(?:,\s*|\b)(?:and )?then\b\s*/i).filter(Boolean);
+      for (const s of steps) if (!(await step(s))) break;
     } finally {
       busyNow = false;
       $("#askSend").disabled = false;
       scroll();
     }
   }
-  setMode(mode);
   A.ask = (text) => { open(true); return send(text); };
 }

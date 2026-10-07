@@ -366,6 +366,22 @@ with sync_playwright() as p:
         check("assistant: explains concepts", "0.1" in r, r)
         r = ask("summary")
         check("assistant: summarises the session and opens the report", "Your session" in r and "#/report" in pg.url, r)
+        r = ask("run TC-003 with M07 then zoom to violation")
+        check(
+            "assistant: chains steps with 'then'",
+            "Zoomed" in r and "M07" in pg.locator("#askLog .msg.bot").nth(-2).inner_text(),
+            r,
+        )
+        pg.click("#askMenuBtn")
+        check("assistant: the features menu lists every area", pg.locator("#askMenu .grp").count() >= 8)
+        k = pg.locator("#askLog .msg.bot").count()
+        pg.click("#askMenu button:has-text('replay F-003')")
+        pg.wait_for_function(
+            f"document.querySelectorAll('#askLog .msg.bot').length > {k} && !document.querySelector('#askLog .spinner')",
+            timeout=SLOW,
+        )
+        r = pg.locator("#askLog .msg.bot").last.inner_text()
+        check("assistant: a menu item runs its command", "F-003" in r and "REQ-EM-006" in r, r)
         r = ask("blorp zzz")
         check("assistant: unknown input gets help, not an error", "did not catch" in r, r)
         pg.screenshot(path=f"{SHOTS}/assistant.png", full_page=False)
