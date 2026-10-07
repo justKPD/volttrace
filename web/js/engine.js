@@ -1,26 +1,31 @@
 /* One engine interface, two transports:
-   - local Python behind `volttrace serve` (POST api/<method>), detected automatically;
-   - otherwise Pyodide in a Web Worker (the static GitHub Pages deployment). */
+   - local Python behind `volttrace serve` (POST api/<method>);
+   - Pyodide in a Web Worker (the static GitHub Pages deployment). */
 
 export async function createEngine(onStatus) {
+  // data/runtime.json says where the engine lives: written as "browser" by `volttrace build-site`,
+  // answered as "server" by `volttrace serve`. No probing request that a static host would reject.
+  let runtime = { engine: "browser" };
   try {
-    const r = await fetch("api/info", { method: "POST", body: "{}" });
-    if (r.ok) {
-      const info = await r.json();
-      onStatus({ ready: true, mode: "local Python server" });
-      return {
-        mode: "server",
-        info,
-        call: async (method, params) => {
-          const res = await fetch("api/" + method, { method: "POST", body: JSON.stringify(params || {}) });
-          const body = await res.json();
-          if (!res.ok) throw new Error(body.error || res.statusText);
-          return body;
-        },
-      };
-    }
+    const r = await fetch("data/runtime.json", { cache: "no-store" });
+    if (r.ok) runtime = await r.json();
   } catch (_) {
-    /* no server: fall through to the in-browser engine */
+    /* missing file: assume the static deployment */
+  }
+  if (runtime.engine === "server") {
+    const res = await fetch("api/info", { method: "POST", body: "{}" });
+    const info = await res.json();
+    onStatus({ ready: true, mode: "local Python server" });
+    return {
+      mode: "server",
+      info,
+      call: async (method, params) => {
+        const r = await fetch("api/" + method, { method: "POST", body: JSON.stringify(params || {}) });
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.error || r.statusText);
+        return body;
+      },
+    };
   }
 
   const worker = new Worker("js/worker.js");
@@ -28,6 +33,17 @@ export async function createEngine(onStatus) {
   const pending = new Map();
   let readyResolve, readyReject;
   const ready = new Promise((res, rej) => ((readyResolve = res), (readyReject = rej)));
+  const fail = (why) => {
+    const msg = `${why} Your network may block cdn.jsdelivr.net. You can run it locally instead: pip install -e . && volttrace serve`;
+    onStatus({ ready: false, error: msg });
+    readyReject(new Error(msg));
+  };
+  worker.onerror = (e) => {
+    e.preventDefault();
+    fail("Could not load the Python runtime.");
+  };
+  const watchdog = setTimeout(() => fail("The Python runtime did not load within 3 minutes."), 180000);
+  ready.then(() => clearTimeout(watchdog), () => clearTimeout(watchdog));
   worker.onmessage = (e) => {
     const m = e.data;
     if (m.status !== undefined) {

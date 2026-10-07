@@ -19,7 +19,8 @@ const state = {
 const pill = $("#engine");
 function setStatus(s) {
   pill.className = "engine " + (s.error ? "error" : s.ready ? "ready" : "loading");
-  pill.textContent = s.error ? "Engine failed: " + s.error : s.ready ? "Engine ready · runs " + s.mode : s.text || "Engine: starting…";
+  pill.textContent = s.error ? "Engine failed to start" : s.ready ? "Engine ready · runs " + s.mode : s.text || "Engine: starting…";
+  pill.title = s.error || "Where the simulation runs";
 }
 const booting = createEngine(setStatus)
   .then((e) => {
@@ -28,7 +29,13 @@ const booting = createEngine(setStatus)
     setStatus({ ready: true, mode: e.mode === "server" ? "in a local Python process" : "in your browser (Pyodide)" });
     render();
   })
-  .catch((err) => setStatus({ error: err.message }));
+  .catch((err) => {
+    setStatus({ error: err.message });
+    bootError = err;
+    view.innerHTML = `<div class="note bad"><h3>The validation engine could not start</h3><p>${esc(err.message)}</p>
+      <p>Everything on this site is computed by a Python engine that runs inside your browser. The
+      <a href="report.html">evidence report</a> works without it.</p></div>`;
+  });
 
 async function call(method, params, onProgress) {
   await booting;
@@ -85,8 +92,10 @@ function errorNote(host, err) {
 // ------------------------------------------------------------------ router
 const routes = { "": renderStart, bench: renderBench, hunt: renderHunt, falsify: renderFalsify, ci: renderCI,
                  requirements: renderRequirements, findings: renderFindings };
+let bootError = null;
 function render() {
   hideTip();
+  if (bootError) return;
   const route = location.hash.replace(/^#\/?/, "").split("?")[0];
   document.querySelectorAll("#nav a[data-route]").forEach((a) => a.classList.toggle("active", a.dataset.route === route));
   if (!info) {

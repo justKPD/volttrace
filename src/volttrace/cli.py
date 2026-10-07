@@ -251,6 +251,7 @@ def cmd_build_site(args: argparse.Namespace) -> int:
     wheels = sorted((site / "py").glob("volttrace-*.whl")) if (site / "py").exists() else []
     bundle["wheel"] = f"py/{wheels[-1].name}" if wheels else None
     (site / "data" / "bundle.json").write_text(json.dumps(bundle))
+    (site / "data" / "runtime.json").write_text(json.dumps({"engine": "browser"}))
     build(Path(args.out), root / "requirements.yaml", root / "catalog")
     print(f"site assembled in {site} (engine wheel: {bundle['wheel'] or 'none - local server mode only'})")
     return 0
@@ -277,6 +278,17 @@ def cmd_serve(args: argparse.Namespace) -> int:
         def log_message(self, fmt: str, *a: object) -> None:
             if args.verbose:
                 super().log_message(fmt, *a)
+
+        def do_GET(self) -> None:  # noqa: N802 (http.server API)
+            if self.path.split("?")[0] == "/data/runtime.json":  # tell the app the engine is this process
+                data = b'{"engine": "server"}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+            super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802 (http.server API)
             name = self.path.removeprefix("/api/")
