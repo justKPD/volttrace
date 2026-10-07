@@ -53,7 +53,10 @@ class Template:
 
     @classmethod
     def load(cls, path: str | Path) -> Template:
-        d = yaml.safe_load(Path(path).read_text())
+        return cls.from_dict(yaml.safe_load(Path(path).read_text()))
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> Template:
         params = tuple(
             Param(p["path"], float(p["lo"]), float(p["hi"]), bool(p.get("integer", False))) for p in d["params"]
         )
@@ -134,6 +137,7 @@ def falsify(
     elite_frac: float = 0.25,
     seed: int = 0,
     stop_on_counterexample: bool = True,
+    on_sample: Callable[[int, Sample], None] | None = None,
 ) -> FalsificationResult:
     rng = np.random.default_rng(seed)
     f = _objective(tpl, reqset, sut, sut_name)
@@ -152,6 +156,8 @@ def falsify(
         for u in batch_u:
             s = f(u)
             res.samples.append(s)
+            if on_sample is not None:
+                on_sample(len(res.samples), s)
             batch.append((s.robustness, u))
             if stop_on_counterexample and s.robustness < 0:
                 return res

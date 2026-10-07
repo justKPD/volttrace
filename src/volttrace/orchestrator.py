@@ -80,6 +80,7 @@ class Runner:
         self.cases = {c.id: c for c in cases}
         self.cache: dict[tuple[str, str, str, int], Execution] = {}
         self.factories: dict[str, Callable[[Calibration], EnergyManager]] = {"reference": EnergyManager}
+        self.on_simulation: Callable[[int], None] | None = None  # progress hook: number of simulations so far
 
     def run(self, software: str, test_id: str, env: Env, rep: int = 0) -> Execution:
         """`rep` selects an independent noise seed for repeated HiL runs (paired with the reference)."""
@@ -89,6 +90,8 @@ class Runner:
             seed = zlib.crc32(test_id.encode()) + self.seed_offset + 7919 * rep
             tr = simulate(case.scenario, self.factories[software], sut_name=software, env=env, seed=seed)
             self.cache[key] = Execution(evaluate(tr, self.reqset, list(case.requirements)), float(tr.t[-1]))
+            if self.on_simulation is not None:
+                self.on_simulation(len(self.cache))
         return self.cache[key]
 
     def new_failures(self, software: str, test_id: str, env: Env, rep: int = 0) -> list[str]:

@@ -1,7 +1,8 @@
-name: evidence-report
+name: studio
 
-# Rebuilds the HTML evidence report from scratch on every push to main and publishes it to
-# GitHub Pages. One-time setup: Settings -> Pages -> Source: "GitHub Actions".
+# Builds VoltTrace Studio (static web app + the volttrace engine as a wheel that runs in the browser via
+# Pyodide) and the evidence report, checks the deployed artefact end to end in a real browser, then
+# publishes it to GitHub Pages. One-time setup: Settings -> Pages -> Source: "GitHub Actions".
 
 on:
   push:
@@ -25,13 +26,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[dev]" playwright
       - name: Mutation kill matrix
         run: volttrace mutants --out out
-      - name: Orchestration benchmark (3 noise seed sets)
+      - name: Orchestration benchmark (3 noise seed sets, for the evidence report)
         run: volttrace bench --seeds 0 1 2 --out out
-      - name: Evidence report
-        run: volttrace report --out out
+      - name: Engine wheel for the browser
+        run: pip wheel . --no-deps -w out/site/py
+      - name: Assemble the Studio and the evidence report
+        run: volttrace build-site --out out
+      - name: End-to-end check of the static site (engine boots in the browser via Pyodide)
+        run: |
+          python -m playwright install --with-deps chromium
+          python -m http.server 8000 --directory out/site > /dev/null 2>&1 &
+          sleep 2
+          SHOTS_DIR=out/e2e python scripts/studio_e2e.py http://127.0.0.1:8000/ --static
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studio-e2e-screenshots
+          path: out/e2e/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out/site

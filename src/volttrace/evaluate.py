@@ -44,7 +44,10 @@ class RequirementSet:
 
     @classmethod
     def load(cls, path: str | Path) -> RequirementSet:
-        d = yaml.safe_load(Path(path).read_text())
+        return cls.from_dict(yaml.safe_load(Path(path).read_text()))
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> RequirementSet:
         reqs: dict[str, Requirement] = {}
         for r in d["requirements"]:
             kind = r.get("kind", "stl")

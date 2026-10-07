@@ -26,7 +26,10 @@ class TestCase:
 
 
 def load_case(path: Path) -> TestCase:
-    d = yaml.safe_load(path.read_text())
+    return case_from_dict(yaml.safe_load(path.read_text()))
+
+
+def case_from_dict(d: dict[str, Any]) -> TestCase:
     return TestCase(
         id=d["id"],
         title=d["title"],

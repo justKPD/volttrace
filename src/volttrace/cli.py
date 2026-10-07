@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import shutil
 import subprocess
@@ -236,6 +237,72 @@ def cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_build_site(args: argparse.Namespace) -> int:
+    """Assemble the deployable Studio: static app, data bundle, evidence report, optional engine wheel."""
+    from volttrace.htmlreport import build
+    from volttrace.webapi import build_bundle
+
+    root = Path(args.root)
+    site = Path(args.out) / "site"
+    site.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(root / "web", site, dirs_exist_ok=True)
+    (site / "data").mkdir(exist_ok=True)
+    bundle = build_bundle(root)
+    wheels = sorted((site / "py").glob("volttrace-*.whl")) if (site / "py").exists() else []
+    bundle["wheel"] = f"py/{wheels[-1].name}" if wheels else None
+    (site / "data" / "bundle.json").write_text(json.dumps(bundle))
+    build(Path(args.out), root / "requirements.yaml", root / "catalog")
+    print(f"site assembled in {site} (engine wheel: {bundle['wheel'] or 'none - local server mode only'})")
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Serve the Studio with the engine running in this Python process (local use or a hosted backend)."""
+    import threading
+    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+    from volttrace.webapi import Engine, build_bundle
+
+    site = Path(args.out) / "site"
+    if not (site / "index.html").exists():
+        cmd_build_site(args)
+    engine = Engine(build_bundle(args.root))
+    lock = threading.Lock()
+    methods = {"info", "run", "stl_eval", "falsify", "orchestrate", "hunt_start", "hunt_run", "hunt_reveal"}
+
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *a: object, **kw: object) -> None:
+            super().__init__(*a, directory=str(site), **kw)  # type: ignore[arg-type]
+
+        def log_message(self, fmt: str, *a: object) -> None:
+            if args.verbose:
+                super().log_message(fmt, *a)
+
+        def do_POST(self) -> None:  # noqa: N802 (http.server API)
+            name = self.path.removeprefix("/api/")
+            if name not in methods:
+                self.send_error(404)
+                return
+            body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+            try:
+                with lock:
+                    result, status = getattr(engine, name)(body), 200
+            except Exception as exc:  # report engine errors to the UI instead of dropping the connection
+                result, status = {"error": f"{type(exc).__name__}: {exc}"}, 400
+            data = json.dumps(result).encode()
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    print(f"VoltTrace Studio on http://{args.host}:{args.port}/  (engine: local Python, Ctrl+C to stop)")
+    with contextlib.suppress(KeyboardInterrupt):
+        server.serve_forever()
+    return 0
+
+
 def cmd_pipeline(args: argparse.Namespace) -> int:
     """CI entry point: static checks -> requirement/catalog lint -> SiL execution -> gate + report."""
     out = Path(args.out)
@@ -301,6 +368,17 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("report", help="self-contained HTML evidence report from out/ (+ fresh evidence simulations)")
     common(p)
     p.set_defaults(fn=cmd_report)
+    p = sub.add_parser("build-site", help="assemble the Studio web app, data bundle and report into out/site")
+    common(p)
+    p.add_argument("--root", default=".")
+    p.set_defaults(fn=cmd_build_site)
+    p = sub.add_parser("serve", help="run VoltTrace Studio locally with the engine in this Python process")
+    common(p)
+    p.add_argument("--root", default=".")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--verbose", action="store_true")
+    p.set_defaults(fn=cmd_serve)
     p = sub.add_parser("pipeline", help="static checks -> lint -> SiL run -> gate (CI entry point)")
     common(p)
     p.add_argument("--no-mdf", action="store_true")

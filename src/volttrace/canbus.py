@@ -6,18 +6,21 @@ saturated exactly as its DBC scale, offset and bit length dictate. Faults
 residual-bus simulation in CANoe would do it.
 
 For speed, frames are not bit-packed every step. The quantisation is derived
-from the DBC once. `tests/test_canbus.py` checks it against cantools'
-real encode/decode.
+from the DBC once and stored in `data/dbc_signals.json` (`volttrace dbc-export`),
+so the runtime needs no DBC parser (it also runs in the browser).
+`tests/test_canbus.py` checks that table, and the quantisation, against cantools'
+real DBC parsing and encode/decode.
 """
 
 from __future__ import annotations
 
+import json
 from collections import deque
 from dataclasses import dataclass, field
+from functools import cache
 from importlib import resources
 from typing import Any
 
-import cantools
 import numpy as np
 
 from volttrace.env import BusEffects
@@ -35,9 +38,29 @@ class _SigQ:
         return min(self.hi, max(self.lo, raw * self.scale + self.offset))
 
 
-def load_dbc() -> cantools.database.can.Database:
+def load_dbc() -> Any:
+    """Parse the DBC with cantools (development and tests only; the runtime uses `signal_table`)."""
+    import cantools
+
     path = resources.files("volttrace.data").joinpath("volttrace.dbc")
     return cantools.database.load_string(path.read_text(), database_format="dbc")
+
+
+def export_signal_table() -> dict[str, Any]:
+    """Message cycle times and per-signal quantisation, extracted from the DBC."""
+    db = load_dbc()
+    return {
+        m.name: {
+            "cycle_ms": m.cycle_time or 100,
+            "signals": {s.name: [s.scale, s.offset, float(s.minimum), float(s.maximum)] for s in m.signals},
+        }
+        for m in db.messages
+    }
+
+
+@cache
+def signal_table() -> dict[str, Any]:
+    return json.loads(resources.files("volttrace.data").joinpath("dbc_signals.json").read_text())
 
 
 @dataclass
@@ -74,15 +97,15 @@ class CanBus:
     RX_MESSAGES = ("VCU_1", "BMS_1", "INV_1")
 
     def __init__(self, faults: list[Fault] | None = None, effects: BusEffects | None = None, seed: int = 0) -> None:
-        db = load_dbc()
+        table = signal_table()
         self.faults = faults or []
         self.effects = effects or BusEffects()
         self.rng = np.random.default_rng(seed)
         self.msgs: dict[str, _Msg] = {}
         for name in self.RX_MESSAGES:
-            m = db.get_message_by_name(name)
-            sigs = {s.name: _SigQ(s.scale, s.offset, float(s.minimum), float(s.maximum)) for s in m.signals}
-            self.msgs[name] = _Msg(name, (m.cycle_time or 100) / 1000.0, sigs)
+            m = table[name]
+            sigs = {sig: _SigQ(*q) for sig, q in m["signals"].items()}
+            self.msgs[name] = _Msg(name, m["cycle_ms"] / 1000.0, sigs)
         self._signal_owner = {s: m.name for m in self.msgs.values() for s in m.signals}
 
     def _apply_signal_faults(self, t: float, values: dict[str, float]) -> dict[str, float]:

@@ -20,8 +20,25 @@ does three things a regression suite alone does not:
    with no false alarms. A noise-aware variant finds at least as many bugs as running everything on the rig, at
    ~30 % less rig time.
 
-**Evidence report:** every finding with its measurements, the benchmark and the kill matrix are in one generated page.
-Live at **https://justkpd.github.io/volttrace/**, rebuilt from scratch on every push.
+## Try it: VoltTrace Studio
+
+**https://justkpd.github.io/volttrace/** is a live app. The real validation engine (plant, CAN bus, ECU software, STL
+checks, falsifier, orchestrator) runs **in your browser** through Pyodide, so every click is a fresh simulation, with
+no server and nothing precomputed except the 15-minute multi-seed benchmark.
+
+| Page | What you can do |
+|---|---|
+| **Test Bench** | Pick a test, a software version (released, one of 14 seeded bugs, a clean change, or a historical build) and a tier (SiL or HiL mock). Edit SOC, temperatures, speed and pack ageing. Run it, read each requirement's verdict and margin, inspect signals against the requirement limits with the released software overlaid, and export CSV, JSON or JUnit. |
+| **Bug Hunt** | A hidden change is loaded. Run tests to find which feature it breaks, spending as little HiL rig time as you can, then reveal it. |
+| **Falsifier** | Search the scenario space live (random or cross-entropy) and watch the margin fall. Open the counterexample on the bench or download it as a regression test. |
+| **CI Orchestrator** | Pick a change and a policy (A full, B static, C adaptive, D noise-aware) and run the whole CI cycle live: every SiL job, every HiL escalation and why, as a Gantt chart. |
+| **Requirements** | Read the 15 requirements, and write your own STL formula against the last run. |
+| **Findings** | Replay each of the six defects in one click, on the build that still has it. |
+
+Run it locally with the engine in your own Python process: `pip install -e . && volttrace serve` → http://127.0.0.1:8000.
+Every push rebuilds the Studio and boots the **static** site in Chromium, where 10 end-to-end checks must pass
+(`scripts/studio_e2e.py`) before it deploys. The generated [evidence report](https://justkpd.github.io/volttrace/report.html)
+sits next to it.
 
 ## What the pipeline found in its own "clean" code
 
@@ -106,9 +123,10 @@ pip install -e ".[dev]"
 volttrace pipeline                 # static checks -> lint -> SiL run -> gate (CI entry point)
 volttrace mutants                  # SiL kill matrix
 volttrace bench --seeds 0 1 2      # A/B/C/D orchestration benchmark (~15 min)
-volttrace report                   # HTML evidence report -> out/site/index.html
+volttrace serve                    # VoltTrace Studio on http://127.0.0.1:8000 (engine in this process)
+volttrace build-site               # static Studio + evidence report -> out/site
 volttrace falsify falsify/FZ-003_regen.yaml --sut M09SopAssumesNewPack --seed 1   # rediscover F-002
-pytest -q                          # 36 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
+pytest -q                          # 48 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
 ```
 
 ## What this is and is not

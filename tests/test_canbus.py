@@ -55,3 +55,9 @@ def test_delay_and_stuck_faults():
     for k in range(1, 6):
         bus.tick(k * 0.01, PHYS)
     assert bus.rx()["BMS_SOC"] == pytest.approx(80.0)
+
+
+def test_runtime_signal_table_matches_the_dbc():
+    from volttrace.canbus import export_signal_table, signal_table
+
+    assert signal_table() == export_signal_table()

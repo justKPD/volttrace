@@ -516,8 +516,8 @@ def build(out: Path, requirements: Path, catalog: Path) -> Path:
     )
     site = out / "site"
     site.mkdir(parents=True, exist_ok=True)
-    (site / "index.html").write_text(page)
-    return site / "index.html"
+    (site / "report.html").write_text(page)
+    return site / "report.html"
 
 
 TEMPLATE = """<!doctype html>
