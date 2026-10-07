@@ -18,6 +18,9 @@ from importlib import resources
 from typing import Any
 
 import cantools
+import numpy as np
+
+from volttrace.env import BusEffects
 
 
 @dataclass(frozen=True)
@@ -70,9 +73,11 @@ class CanBus:
 
     RX_MESSAGES = ("VCU_1", "BMS_1", "INV_1")
 
-    def __init__(self, faults: list[Fault] | None = None) -> None:
+    def __init__(self, faults: list[Fault] | None = None, effects: BusEffects | None = None, seed: int = 0) -> None:
         db = load_dbc()
         self.faults = faults or []
+        self.effects = effects or BusEffects()
+        self.rng = np.random.default_rng(seed)
         self.msgs: dict[str, _Msg] = {}
         for name in self.RX_MESSAGES:
             m = db.get_message_by_name(name)
@@ -103,11 +108,23 @@ class CanBus:
                 m.next_tx += m.cycle_s
                 if self._msg_fault(t, m.name, "timeout"):
                     continue
+                fx = self.effects
+                if fx.drop_prob and self.rng.random() < fx.drop_prob:
+                    continue
                 vals = {s: physical[s] for s in m.signals}
+                for sig in vals:
+                    sigma = fx.noise_sigma.get(sig)
+                    if sigma:
+                        vals[sig] += float(self.rng.normal(0.0, sigma))
                 vals = self._apply_signal_faults(t, vals)
                 vals = {s: q(vals[s]) for s, q in m.signals.items()}
                 delay = self._msg_fault(t, m.name, "delay")
-                m.in_flight.append((t + (delay.value if delay else 0.0), vals))
+                arrival = t + (delay.value if delay else 0.0)
+                if fx.latency_max_s:
+                    arrival += float(self.rng.uniform(0.0, fx.latency_max_s))
+                if m.in_flight:  # frames of one CAN ID arrive in order
+                    arrival = max(arrival, m.in_flight[-1][0])
+                m.in_flight.append((arrival, vals))
             while m.in_flight and m.in_flight[0][0] <= t + eps:
                 _, vals = m.in_flight.popleft()
                 m.last_values = vals

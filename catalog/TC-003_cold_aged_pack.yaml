@@ -1,6 +1,6 @@
 id: TC-003
 title: Cold (-10 degC), aged (R x2.0), half-empty pack under full-pedal launches - cold limits and undervoltage
-requirements: [REQ-HV-001, REQ-HV-012]
+requirements: [REQ-HV-001, REQ-HV-012, REQ-FS-014]
 features: [discharge_limit, cold, voltage_guard]
 criticality: A
 required_fidelity: sil

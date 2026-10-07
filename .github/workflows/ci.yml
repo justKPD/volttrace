@@ -33,11 +33,20 @@ jobs:
         run: volttrace pipeline --out out
       - name: Mutation kill matrix
         run: volttrace mutants --out out
-      - name: "Falsification: regen template (finds open finding F-002; exit code 2 = counterexample)"
-        run: volttrace falsify falsify/FZ-003_regen.yaml --strategy cem --budget 48 --seed 1 --out out || test $? -eq 2
+      - name: "Falsification: regen template on the released SUT (must find no counterexample)"
+        run: volttrace falsify falsify/FZ-003_regen.yaml --strategy cem --budget 48 --seed 1 --out out
+      - name: "Falsification: same template against mutant M09 (must rediscover F-002; exit 2 = found)"
+        run: |
+          set +e
+          volttrace falsify falsify/FZ-003_regen.yaml --sut M09SopAssumesNewPack --strategy cem --budget 48 --seed 1 --out out
+          test $? -eq 2
+      - name: "Orchestration benchmark A/B/C (seed set 0) + exact reproduction check"
+        run: |
+          volttrace bench --seeds 0 --out out
+          python scripts/check_reproduction.py out/benchmark.json
       - name: Job summary
         if: always()
-        run: cat out/pipeline.md out/summary_baseline.md out/mutation_matrix.md >> "$GITHUB_STEP_SUMMARY"
+        run: cat out/pipeline.md out/summary_baseline.md out/mutation_matrix.md out/benchmark.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: always()
         with:

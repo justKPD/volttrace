@@ -2,6 +2,7 @@ id: FZ-003-CX2
 title: 'Regression for F-003: driver releases the brake 0.74 -> 0.17 during heavy
   regen near full charge'
 requirements:
+- REQ-FS-014
 - REQ-EM-006
 - REQ-DR-009
 - REQ-DR-013

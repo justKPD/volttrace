@@ -62,7 +62,12 @@ class EnergyManager:
     FAULT_COMM_BMS = 1
     FAULT_TBAT_PLAUS = 2
 
+    # calibration keys a variant overrides (used by changes and mutants; empty for the release)
+    CAL_OVERRIDE: dict[str, Any] = {}
+
     def __init__(self, cal: Calibration) -> None:
+        if self.CAL_OVERRIDE:
+            cal = Calibration({**cal.raw, **self.CAL_OVERRIDE})
         self.cal = cal
         self.state = State.INIT
         self.fault_code = self.FAULT_NONE
@@ -71,6 +76,7 @@ class EnergyManager:
         self.inv_derating = False
         self.t_bat_prev: float | None = None
         self.t_bat_prev_t = 0.0
+        self.plaus_count = 0
         self.clock = 0.0
         self.g_dis = 1.0
         self.g_chg = 1.0
@@ -190,7 +196,11 @@ class EnergyManager:
     # ----------------------------------------------------------- diagnostics
     def diagnose(self, rx: dict[str, float], age: dict[str, float], dt: float) -> int:
         c = self.cal
-        if age.get("BMS_1", 1e9) > c.can_timeout_s or "BMS_T_bat" not in rx:
+        if "BMS_T_bat" not in rx:
+            # enable condition (finding F-004): before the first frame, only a missing BMS after the
+            # start-up grace period is a fault; frame latency at power-up is not
+            return self.FAULT_COMM_BMS if self.clock > c.diag_startup_grace_s else self.FAULT_NONE
+        if age.get("BMS_1", 1e9) > c.can_timeout_s:
             return self.FAULT_COMM_BMS
         t_bat = rx["BMS_T_bat"]
         lo, hi = c.t_bat_plaus_range_c
@@ -201,7 +211,11 @@ class EnergyManager:
                 dt_frame = self.clock - self.t_bat_prev_t
                 allowed = c.t_bat_plaus_rate_k_s * dt_frame + c.t_bat_plaus_quant_k
                 if abs(t_bat - self.t_bat_prev) > allowed:
-                    return self.FAULT_TBAT_PLAUS
+                    # debounce (finding F-005): a single noisy frame is not a defect; a jump that
+                    # persists against the last *accepted* value for N frames is
+                    self.plaus_count += 1
+                    return self.FAULT_TBAT_PLAUS if self.plaus_count >= c.t_bat_plaus_debounce else self.FAULT_NONE
+            self.plaus_count = 0
             self.t_bat_prev, self.t_bat_prev_t = t_bat, self.clock
         return self.FAULT_NONE
 
@@ -260,6 +274,13 @@ class EnergyManager:
         self.brake_prev = brake
         if fault and not self.fault_code:
             self.fault_code = fault  # latched until the next key cycle
+        if "BMS_V_bus" not in rx:
+            # INIT until the first valid BMS frame (finding F-006): a missing signal is invalid,
+            # not 0 V; feeding a default into the guards latched the discharge limit to zero
+            self.state = State.FAULT if self.fault_code else State.INIT
+            self.torque_prev = 0.0
+            p_lim = 0.0
+            return EmsOutput(0.0, brake * c.brake_force_max_n, p_lim, p_lim, self.state, 1.0, self.fault_code)
         cold_dis, cold_chg = self.cold_factors(t_bat)
         derate = self.derate_factor(t_bat, t_inv)
         p_dis = self.soc_discharge_kw(soc) * 1e3 * cold_dis * derate

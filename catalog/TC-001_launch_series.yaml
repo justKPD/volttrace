@@ -1,7 +1,7 @@
 id: TC-001
 title: Five 0-200 km/h launches back to back, warm pack - limits, thermal and repeatability
-requirements: [REQ-HV-001, REQ-TH-003, REQ-TH-004, REQ-EM-006, REQ-DR-009, KPI-PERF-011]
-features: [discharge_limit, thermal_derating, torque_arbitration, brake_blending]
+requirements: [REQ-HV-001, REQ-TH-003, REQ-TH-004, REQ-EM-006, REQ-DR-009, KPI-PERF-011, REQ-FS-014, REQ-FS-015]
+features: [discharge_limit, thermal_derating, torque_arbitration, brake_blending, startup]
 criticality: A
 required_fidelity: sil
 scenario:

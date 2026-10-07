@@ -1,6 +1,6 @@
 id: TC-002
 title: Braking from 220 km/h on an almost full pack - regen limit, overvoltage, brake blending
-requirements: [REQ-HV-002, REQ-EM-005, REQ-EM-006]
+requirements: [REQ-HV-002, REQ-EM-005, REQ-EM-006, REQ-FS-014]
 features: [charge_limit, regen, brake_blending, voltage_guard]
 criticality: A
 required_fidelity: sil

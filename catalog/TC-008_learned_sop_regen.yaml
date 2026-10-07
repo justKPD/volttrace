@@ -1,0 +1,17 @@
+id: TC-008
+title: Aged pack (R x1.8) accelerates (resistance estimate converges), then brakes hard at ~89 % SOC - converged-SOP path
+requirements: [REQ-HV-002, REQ-EM-006, REQ-FS-014]
+features: [charge_limit, regen, voltage_guard, brake_blending]
+criticality: A
+required_fidelity: sil
+scenario:
+  driver: profile
+  args:
+    rows:
+      - {t: 0.0, pedal: 1.0, brake: 0.0}
+      - {t: 2.0, pedal: 0.3, brake: 0.0}
+      - {t: 3.0, pedal: 1.0, brake: 0.0}
+      - {t: 5.0, pedal: 0.0, brake: 0.9}
+      - {t: 11.0, pedal: 0.0, brake: 0.0}
+  initial: {soc: 0.895, t_bat_c: 22, v_kph: 90, r_aging_factor: 1.8}
+  max_duration_s: 12

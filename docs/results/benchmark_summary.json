@@ -1,0 +1,123 @@
+{
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "summary_per_seed": {
+    "0": [
+      {
+        "strategy": "A",
+        "bugs_detected": "13/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "4/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 13.1,
+        "mean_makespan_min": 13.1,
+        "median_ttff_s": 5.4,
+        "clean_change_makespan_min": 12.8
+      },
+      {
+        "strategy": "B",
+        "bugs_detected": "13/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "4/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 12.5,
+        "mean_makespan_min": 12.5,
+        "median_ttff_s": 5.4,
+        "clean_change_makespan_min": 12.2
+      },
+      {
+        "strategy": "C",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 3.2,
+        "mean_makespan_min": 3.3,
+        "median_ttff_s": 4.4,
+        "clean_change_makespan_min": 0.7
+      }
+    ],
+    "1": [
+      {
+        "strategy": "A",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 13.1,
+        "mean_makespan_min": 13.1,
+        "median_ttff_s": 5.1,
+        "clean_change_makespan_min": 12.8
+      },
+      {
+        "strategy": "B",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 12.5,
+        "mean_makespan_min": 12.5,
+        "median_ttff_s": 5.1,
+        "clean_change_makespan_min": 12.2
+      },
+      {
+        "strategy": "C",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 3.2,
+        "mean_makespan_min": 3.3,
+        "median_ttff_s": 4.4,
+        "clean_change_makespan_min": 0.7
+      }
+    ],
+    "2": [
+      {
+        "strategy": "A",
+        "bugs_detected": "11/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "2/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 13.1,
+        "mean_makespan_min": 13.1,
+        "median_ttff_s": 4.8,
+        "clean_change_makespan_min": 12.8
+      },
+      {
+        "strategy": "B",
+        "bugs_detected": "11/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "2/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 12.5,
+        "mean_makespan_min": 12.5,
+        "median_ttff_s": 4.8,
+        "clean_change_makespan_min": 12.2
+      },
+      {
+        "strategy": "C",
+        "bugs_detected": "11/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "2/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 3.2,
+        "mean_makespan_min": 3.3,
+        "median_ttff_s": 4.2,
+        "clean_change_makespan_min": 0.7
+      }
+    ]
+  }
+}

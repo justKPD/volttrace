@@ -168,6 +168,66 @@ def cmd_falsify(args: argparse.Namespace) -> int:
     return 2 if res.found else 0
 
 
+def cmd_bench(args: argparse.Namespace) -> int:
+    from dataclasses import asdict
+
+    from volttrace.orchestrator import Runner, all_changes, benchmark, summarise
+
+    reqset = RequirementSet.load(args.requirements)
+    cases = load_catalog(args.catalog)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    per_seed = {}
+    all_outcomes = []
+    for seed in args.seeds:
+        runner = Runner(reqset, cases, seed_offset=seed)
+        outcomes = benchmark(runner, all_changes())
+        all_outcomes.extend(outcomes)
+        per_seed[seed] = summarise(outcomes)
+        print(f"noise seed set {seed}: {len(runner.cache)} simulations")
+    first = args.seeds[0]
+    (out / "benchmark.json").write_text(
+        json.dumps(
+            {
+                "seeds": args.seeds,
+                "summary_per_seed": per_seed,
+                "outcomes": [
+                    asdict(o) | {"seed": args.seeds[i // (len(all_outcomes) // len(args.seeds))]}
+                    for i, o in enumerate(all_outcomes)
+                ],
+            },
+            indent=2,
+            default=float,
+        )
+    )
+    cols = [
+        "strategy",
+        "bugs_detected",
+        "sil_observable_detected",
+        "hil_only_detected",
+        "vehicle_only_detected",
+        "false_alarms_on_clean",
+        "mean_hil_minutes",
+        "mean_makespan_min",
+        "median_ttff_s",
+        "clean_change_makespan_min",
+    ]
+    md = ["# Orchestration benchmark", ""]
+    for seed, rows in per_seed.items():
+        md += [f"## Noise seed set {seed}", "", "| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
+        md += ["| " + " | ".join(str(r[c]) for c in cols) + " |" for r in rows]
+        md.append("")
+    md += [f"## Per change (seed set {first})", ""]
+    md += ["| Change | Strategy | Detected in | HiL min | Makespan min | TTFF s |", "|---|---|---|---|---|---|"]
+    for o in all_outcomes[: len(all_outcomes) // len(args.seeds)]:
+        ttff = "" if o.time_to_first_failure_s is None else round(o.time_to_first_failure_s, 1)
+        found = ", ".join(o.detected_in) or "-"
+        md.append(f"| {o.change} | {o.strategy} | {found} | {o.hil_minutes:.1f} | {o.makespan_s / 60:.1f} | {ttff} |")
+    (out / "benchmark.md").write_text("\n".join(md) + "\n")
+    print("\n".join(md[: 6 + 3 * len(per_seed)]))
+    return 0
+
+
 def cmd_pipeline(args: argparse.Namespace) -> int:
     """CI entry point: static checks -> requirement/catalog lint -> SiL execution -> gate + report."""
     out = Path(args.out)
@@ -226,6 +286,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--emit", help="directory to write a found counterexample as a regression test")
     p.set_defaults(fn=cmd_falsify)
+    p = sub.add_parser("bench", help="A/B/C orchestration benchmark over all changes (bugs + clean)")
+    common(p)
+    p.add_argument("--seeds", type=int, nargs="+", default=[0], help="noise seed sets for the HiL-mock runs")
+    p.set_defaults(fn=cmd_bench)
     p = sub.add_parser("pipeline", help="static checks -> lint -> SiL run -> gate (CI entry point)")
     common(p)
     p.add_argument("--no-mdf", action="store_true")

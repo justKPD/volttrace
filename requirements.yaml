@@ -19,6 +19,7 @@ scales:
   state: 1.0
   t_bat_sensed: 10.0
   driver_release: 1.0
+  fault_code: 1.0
 
 requirements:
   - id: REQ-HV-001
@@ -116,3 +117,17 @@ requirements:
     criticality: A
     features: [torque_arbitration, driveability, brake_blending]
     fidelity: sil
+
+  - id: REQ-FS-014
+    title: No diagnostic fault is raised in nominal driving (no spurious limp-home)
+    stl: always(fault_code <= 0.5)
+    criticality: A
+    features: [diagnostics, can]
+    fidelity: hil   # false trips come from noise and bus jitter, which SiL abstracts away
+
+  - id: REQ-FS-015
+    title: Full discharge power (>= 500 kW limit) is available within 1 s after power-up
+    stl: eventually(p_dis_lim_kw >= 500, 0, 1.0)
+    criticality: B
+    features: [startup, voltage_guard, diagnostics]
+    fidelity: hil   # power-up depends on when the first frames arrive, which SiL idealises

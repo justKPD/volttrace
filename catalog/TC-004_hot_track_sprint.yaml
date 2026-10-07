@@ -1,6 +1,6 @@
 id: TC-004
 title: Two track-sprint laps starting with a hot pack (59.5 degC) - derating reaction and thermal limits
-requirements: [REQ-TH-003, REQ-TH-004, REQ-EM-007, REQ-DR-009, REQ-EM-006]
+requirements: [REQ-TH-003, REQ-TH-004, REQ-EM-007, REQ-DR-009, REQ-EM-006, REQ-FS-014]
 features: [thermal_derating, discharge_limit, brake_blending]
 criticality: A
 required_fidelity: sil

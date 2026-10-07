@@ -2,6 +2,7 @@ id: FZ-003-CX
 title: 'Regression for F-002 (found by falsifier FZ-003): hard regen on an aged pack
   (R x1.72) at 90 % SOC'
 requirements:
+- REQ-FS-014
 - REQ-HV-002
 - REQ-EM-006
 features:

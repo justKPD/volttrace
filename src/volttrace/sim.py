@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from volttrace.canbus import CanBus
+from volttrace.env import SIL, Env
 from volttrace.plant import Plant, PlantParams
 from volttrace.scenario import Event, Scenario
 from volttrace.sut.ems import Calibration, EnergyManager
@@ -52,6 +53,7 @@ class Trace:
     signals: dict[str, np.ndarray]
     events: list[Event] = field(default_factory=list)
     sut: str = "baseline"
+    env: str = "sil"
 
     def __getitem__(self, name: str) -> np.ndarray:
         if name == "t":
@@ -69,11 +71,13 @@ def simulate(
     cal: Calibration | None = None,
     dt: float = DT,
     sut_name: str = "baseline",
+    env: Env = SIL,
+    seed: int = 0,
 ) -> Trace:
     params = params or PlantParams.default()
     cal = Calibration(dict((cal or Calibration.default()).raw))
     plant = Plant(params, scenario.initial)
-    bus = CanBus(scenario.faults)
+    bus = CanBus(scenario.faults, env.effects, seed)
     ems = sut(cal)
     driver = scenario.make_driver()
     brake_max = cal.brake_force_max_n
@@ -148,4 +152,4 @@ def simulate(
                 break
 
     signals = {key: arr[:n].copy() for key, arr in log.items()}
-    return Trace(dt, t_axis[:n].copy(), signals, driver.events, sut_name)
+    return Trace(dt, t_axis[:n].copy(), signals, driver.events, sut_name, env.name)

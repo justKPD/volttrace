@@ -53,7 +53,9 @@ r_eol_ratio: 2.0               # end-of-life resistance ratio (pack replacement 
 
 # Diagnostics
 can_timeout_s: 0.100
+diag_startup_grace_s: 0.500  # diagnostics enable condition after power-up (F-004)
 t_bat_plaus_range_c: [-40.0, 90.0]
 t_bat_plaus_rate_k_s: 5.0
 t_bat_plaus_quant_k: 1.0      # allowance for the 0.5 K CAN resolution
+t_bat_plaus_debounce: 3       # consecutive implausible frames before the fault is set (F-005)
 limp_p_dis_kw: 50.0

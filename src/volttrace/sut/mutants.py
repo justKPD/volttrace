@@ -1,14 +1,14 @@
 """Seeded bugs (mutants) in the EMS: the ground truth for every benchmark.
 
-Each mutant overrides exactly one method of `EnergyManager`. Each represents a
+Each mutant overrides one method or one calibration key of `EnergyManager`. Its features are derived
+from what it modifies (`sut/impact.py`, `data/ownership.yaml`), never hand-labelled. Each represents a
 plausible engineering mistake: a wrong breakpoint, a unit slip, a missing
 compensation path. A test suite or falsifier "kills" a mutant when at least one
 requirement fails against it but passes against the clean SUT.
 
-`fidelity` records where the bug can in principle show up. `sil` means the
-SiL loop already exercises it. `hil` means it needs timing or electrical
-effects that this SiL abstracts away (added in later phases with the mock-HiL
-environment).
+`fidelity` is the design hypothesis of where the bug can show up. `sil`: the SiL loop
+exercises it. `hil`: it needs bus timing or sensor noise that SiL abstracts away (mock-HiL).
+`vehicle`: it needs effects neither tier models (drivetrain compliance).
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from volttrace.sut.ems import Calibration, EnergyManager
+from volttrace.sut.impact import features_of
 
 
 class M01NoColdDerating(EnergyManager):
@@ -52,8 +53,7 @@ class M03NoFrictionCompensation(EnergyManager):
 class M04CanTimeoutInMs(EnergyManager):
     """Timeout calibrated in ms but compared against seconds: 100 instead of 0.1."""
 
-    def __init__(self, cal: Calibration) -> None:
-        super().__init__(Calibration({**cal.raw, "can_timeout_s": 100.0}))
+    CAL_OVERRIDE = {"can_timeout_s": 100.0}
 
 
 class M05DerateRampInverted(EnergyManager):
@@ -67,8 +67,7 @@ class M05DerateRampInverted(EnergyManager):
 class M06RateLimiterPerMs(EnergyManager):
     """Torque-rate limit applied per millisecond count instead of per second."""
 
-    def __init__(self, cal: Calibration) -> None:
-        super().__init__(Calibration({**cal.raw, "torque_rate_max_nm_s": cal.raw["torque_rate_max_nm_s"] * 10.0}))
+    CAL_OVERRIDE = {"torque_rate_max_nm_s": 60000.0}
 
 
 class M07VoltageGuardSign(EnergyManager):
@@ -103,6 +102,34 @@ class M09SopAssumesNewPack(EnergyManager):
         return self.r_nominal(t_bat)
 
 
+class M11CanTimeoutTooTight(EnergyManager):
+    """CAN timeout tuned on clean SiL timing: 25 ms against a 20 ms cycle, no room for bus jitter."""
+
+    CAL_OVERRIDE = {"can_timeout_s": 0.025}
+
+
+class M12PlausibilityNoDebounce(EnergyManager):
+    """Temperature plausibility trips on the first implausible frame (re-introduces F-005)."""
+
+    CAL_OVERRIDE = {"t_bat_plaus_debounce": 1}
+
+
+class M13ResistanceEstimatorNoGate(EnergyManager):
+    """Resistance estimator accepts current steps of 5 A, so ADC noise dominates -dV/dI."""
+
+    CAL_OVERRIDE = {"r_est_min_di_a": 5.0}
+
+
+class M14MissingVoltageAsZero(EnergyManager):
+    """Missing BMS voltage read as 0 V before the first frame, so the guard latches the limit (re-introduces F-006)."""
+
+    def step(self, rx: dict[str, float], age: dict[str, float], dt: float):  # type: ignore[override]
+        if "BMS_V_bus" not in rx:
+            rx = {**rx, "BMS_V_bus": 0.0, "BMS_SOC": 0.0, "BMS_T_bat": 25.0, "BMS_I_bat": 0.0}
+            age = {**age, "BMS_1": 0.0}
+        return super().step(rx, age, dt)
+
+
 @dataclass(frozen=True)
 class MutantInfo:
     name: str
@@ -112,24 +139,28 @@ class MutantInfo:
     fidelity: str = "sil"
 
 
-def _info(cls: type[EnergyManager], features: tuple[str, ...], fidelity: str = "sil") -> MutantInfo:
+def _info(cls: type[EnergyManager], fidelity: str = "sil") -> MutantInfo:
     doc = (cls.__doc__ or "").strip()
-    return MutantInfo(cls.__name__, cls, doc, features, fidelity)
+    return MutantInfo(cls.__name__, cls, doc, features_of(cls), fidelity)
 
 
 MUTANTS: dict[str, MutantInfo] = {
     m.name: m
     for m in (
-        _info(M01NoColdDerating, ("discharge_limit", "cold")),
-        _info(M02RegenUsesDischargeMap, ("charge_limit", "regen")),
-        _info(M03NoFrictionCompensation, ("brake_blending", "regen")),
-        _info(M04CanTimeoutInMs, ("diagnostics", "can")),
-        _info(M05DerateRampInverted, ("thermal_derating",)),
-        _info(M06RateLimiterPerMs, ("torque_arbitration", "driveability")),
-        _info(M07VoltageGuardSign, ("voltage_guard", "discharge_limit")),
-        _info(M09SopAssumesNewPack, ("charge_limit", "regen", "voltage_guard")),
-        _info(M10NoBrakeReleaseRampOut, ("brake_blending", "torque_arbitration", "regen")),
-        _info(M08NoRegenFade, ("regen", "brake_blending"), fidelity="vehicle"),
+        _info(M01NoColdDerating),
+        _info(M02RegenUsesDischargeMap),
+        _info(M03NoFrictionCompensation),
+        _info(M04CanTimeoutInMs),
+        _info(M05DerateRampInverted),
+        _info(M06RateLimiterPerMs),
+        _info(M07VoltageGuardSign),
+        _info(M09SopAssumesNewPack),
+        _info(M10NoBrakeReleaseRampOut),
+        _info(M11CanTimeoutTooTight, fidelity="hil"),
+        _info(M12PlausibilityNoDebounce, fidelity="hil"),
+        _info(M13ResistanceEstimatorNoGate, fidelity="hil"),
+        _info(M14MissingVoltageAsZero, fidelity="hil"),
+        _info(M08NoRegenFade, fidelity="vehicle"),
     )
 }
 
