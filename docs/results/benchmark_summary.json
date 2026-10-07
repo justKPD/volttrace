@@ -13,8 +13,8 @@
         "hil_only_detected": "4/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 13.1,
-        "mean_makespan_min": 13.1,
+        "mean_hil_minutes": 13.0,
+        "mean_makespan_min": 13.0,
         "median_ttff_s": 5.4,
         "clean_change_makespan_min": 12.8
       },
@@ -25,8 +25,8 @@
         "hil_only_detected": "4/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 12.5,
-        "mean_makespan_min": 12.5,
+        "mean_hil_minutes": 12.4,
+        "mean_makespan_min": 12.4,
         "median_ttff_s": 5.4,
         "clean_change_makespan_min": 12.2
       },
@@ -37,8 +37,8 @@
         "hil_only_detected": "3/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 3.2,
-        "mean_makespan_min": 3.3,
+        "mean_hil_minutes": 3.1,
+        "mean_makespan_min": 3.2,
         "median_ttff_s": 4.4,
         "clean_change_makespan_min": 0.7
       }
@@ -51,8 +51,8 @@
         "hil_only_detected": "3/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 13.1,
-        "mean_makespan_min": 13.1,
+        "mean_hil_minutes": 13.0,
+        "mean_makespan_min": 13.0,
         "median_ttff_s": 5.1,
         "clean_change_makespan_min": 12.8
       },
@@ -63,8 +63,8 @@
         "hil_only_detected": "3/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 12.5,
-        "mean_makespan_min": 12.5,
+        "mean_hil_minutes": 12.4,
+        "mean_makespan_min": 12.4,
         "median_ttff_s": 5.1,
         "clean_change_makespan_min": 12.2
       },
@@ -75,8 +75,8 @@
         "hil_only_detected": "3/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 3.2,
-        "mean_makespan_min": 3.3,
+        "mean_hil_minutes": 3.1,
+        "mean_makespan_min": 3.2,
         "median_ttff_s": 4.4,
         "clean_change_makespan_min": 0.7
       }
@@ -89,8 +89,8 @@
         "hil_only_detected": "2/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 13.1,
-        "mean_makespan_min": 13.1,
+        "mean_hil_minutes": 13.0,
+        "mean_makespan_min": 13.0,
         "median_ttff_s": 4.8,
         "clean_change_makespan_min": 12.8
       },
@@ -101,8 +101,8 @@
         "hil_only_detected": "2/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 12.5,
-        "mean_makespan_min": 12.5,
+        "mean_hil_minutes": 12.4,
+        "mean_makespan_min": 12.4,
         "median_ttff_s": 4.8,
         "clean_change_makespan_min": 12.2
       },
@@ -113,8 +113,8 @@
         "hil_only_detected": "2/4",
         "vehicle_only_detected": "0/1",
         "false_alarms_on_clean": "0/5",
-        "mean_hil_minutes": 3.2,
-        "mean_makespan_min": 3.3,
+        "mean_hil_minutes": 3.1,
+        "mean_makespan_min": 3.2,
         "median_ttff_s": 4.2,
         "clean_change_makespan_min": 0.7
       }

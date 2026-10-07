@@ -125,8 +125,7 @@ class M14MissingVoltageAsZero(EnergyManager):
 
     def step(self, rx: dict[str, float], age: dict[str, float], dt: float):  # type: ignore[override]
         if "BMS_V_bus" not in rx:
-            rx = {**rx, "BMS_V_bus": 0.0, "BMS_SOC": 0.0, "BMS_T_bat": 25.0, "BMS_I_bat": 0.0}
-            age = {**age, "BMS_1": 0.0}
+            rx = {**rx, "BMS_V_bus": 0.0}  # the pre-fix default; other BMS signals stay missing
         return super().step(rx, age, dt)
 
 

@@ -44,6 +44,8 @@ jobs:
         run: |
           volttrace bench --seeds 0 --out out
           python scripts/check_reproduction.py out/benchmark.json
+      - name: Evidence report (HTML)
+        run: volttrace report --out out
       - name: Job summary
         if: always()
         run: cat out/pipeline.md out/summary_baseline.md out/mutation_matrix.md out/benchmark.md >> "$GITHUB_STEP_SUMMARY"

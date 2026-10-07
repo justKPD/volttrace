@@ -1,0 +1,848 @@
+{
+  "seeds": 8,
+  "budget": 40,
+  "summary": [
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "random": {
+        "found": "8/8",
+        "median_sims": 2.0
+      },
+      "cem": {
+        "found": "8/8",
+        "median_sims": 2.5
+      }
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "random": {
+        "found": "0/8",
+        "median_sims": null
+      },
+      "cem": {
+        "found": "0/8",
+        "median_sims": null
+      }
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "random": {
+        "found": "7/8",
+        "median_sims": 9
+      },
+      "cem": {
+        "found": "8/8",
+        "median_sims": 19.0
+      }
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "random": {
+        "found": "7/8",
+        "median_sims": 8
+      },
+      "cem": {
+        "found": "6/8",
+        "median_sims": 14.0
+      }
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "random": {
+        "found": "8/8",
+        "median_sims": 4.5
+      },
+      "cem": {
+        "found": "7/8",
+        "median_sims": 11
+      }
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "random": {
+        "found": "0/8",
+        "median_sims": null
+      },
+      "cem": {
+        "found": "0/8",
+        "median_sims": null
+      }
+    }
+  ],
+  "runs": [
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": 7,
+      "best": -0.38339421359807374
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": 1,
+      "best": -0.9014276239349078
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": 3,
+      "best": -0.4617566979061689
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": 2,
+      "best": -0.7752213543067978
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": 2,
+      "best": -1.1862602433741507
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": 3,
+      "best": -1.5035774181880766
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": 2,
+      "best": -0.32011531139634825
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": 2,
+      "best": -0.31469235685588276
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": 1,
+      "best": -0.015674740580125218
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": 2,
+      "best": -0.1175753823134437
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": 4,
+      "best": -0.11843187650940308
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": 4,
+      "best": -0.9236638840501655
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": 1,
+      "best": -0.31900217765165506
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": 2,
+      "best": -0.8212607162800032
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": 3,
+      "best": -0.35789406550301917
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M07VoltageGuardSign",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": 11,
+      "best": -0.2170681037849522
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": null,
+      "best": 0.2082806812535591
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": null,
+      "best": 0.16725888593452054
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": null,
+      "best": 0.29183670026922526
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": null,
+      "best": 0.22144347622193436
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": null,
+      "best": 0.17382160332603236
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": null,
+      "best": 0.2709915526955433
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": null,
+      "best": 0.21330417518520334
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": null,
+      "best": 0.17758938117660136
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": null,
+      "best": 0.25783491322007196
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": null,
+      "best": 0.22421694261285666
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": null,
+      "best": 0.16380702315542522
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": null,
+      "best": 0.24027794815816833
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": null,
+      "best": 0.18373264020078978
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": null,
+      "best": 0.1828991306976036
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": null,
+      "best": 0.245342776672519
+    },
+    {
+      "template": "FZ-001",
+      "mutant": "M01NoColdDerating",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": null,
+      "best": 0.1728175984839072
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": 15,
+      "best": -0.02415009600232452
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": 9,
+      "best": -0.0057472839111187566
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": 6,
+      "best": -0.056263980179496687
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": 3,
+      "best": -0.06485260307974386
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": 4,
+      "best": -0.02726067704303432
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": null,
+      "best": 0.012444960086158972
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": 14,
+      "best": -0.08797715874870846
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": 26,
+      "best": -0.018175317667216858
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": 7,
+      "best": -0.03448655480997559
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": 2,
+      "best": -0.04746260742124377
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": 25,
+      "best": -0.025048389748758382
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": 32,
+      "best": -0.0666083391916004
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": 13,
+      "best": -0.007301136535786555
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": 28,
+      "best": -0.009623333704962534
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": 8,
+      "best": -0.057631201405804404
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M09SopAssumesNewPack",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": 38,
+      "best": -0.07164147720369328
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": 2,
+      "best": -0.5676758300407755
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": null,
+      "best": 0.09103515242253707
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": 3,
+      "best": -0.43376573810046726
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": 11,
+      "best": -8.621765738100462
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": 4,
+      "best": -3.8438625727431353
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": 8,
+      "best": -0.20376573810046192
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": 14,
+      "best": -3.6686746699339476
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": 21,
+      "best": -4.549765738100461
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": null,
+      "best": 0.07868166263813692
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": 25,
+      "best": -0.900358673154469
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": 11,
+      "best": -3.496755516871347
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": null,
+      "best": 0.10703253373583721
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": 20,
+      "best": -0.9734967593555655
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": 17,
+      "best": -0.08576573810046215
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": 6,
+      "best": -5.729765738100459
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M10NoBrakeReleaseRampOut",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": 10,
+      "best": -6.389053386068968
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": 3,
+      "best": -0.4867383107934775
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": 2,
+      "best": -0.1562338568028232
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": 8,
+      "best": -0.23384098711519696
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": 5,
+      "best": -0.9307272909492181
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": 1,
+      "best": -1.8337990258894488
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": 17,
+      "best": -0.007829233288780824
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": 4,
+      "best": -0.6124655743372953
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": 15,
+      "best": -1.0278782306777035
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": 2,
+      "best": -0.5506488475538612
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": 15,
+      "best": -0.29628694507284337
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": 16,
+      "best": -0.5824281320433222
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": 1,
+      "best": -1.6960760393238676
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": 5,
+      "best": -1.2281924443949872
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": 19,
+      "best": -0.15994825132258156
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": 11,
+      "best": -0.34735140471670034
+    },
+    {
+      "template": "FZ-003",
+      "mutant": "M02RegenUsesDischargeMap",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": null,
+      "best": 0.09019468106603198
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 0,
+      "sims_to_first_counterexample": null,
+      "best": 0.44936411441241264
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 1,
+      "sims_to_first_counterexample": null,
+      "best": 0.5235236092075638
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 2,
+      "sims_to_first_counterexample": null,
+      "best": 0.44935391220807047
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 3,
+      "sims_to_first_counterexample": null,
+      "best": 0.4928037778111829
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 4,
+      "sims_to_first_counterexample": null,
+      "best": 0.44937449604927904
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 5,
+      "sims_to_first_counterexample": null,
+      "best": 0.5235176745326185
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 6,
+      "sims_to_first_counterexample": null,
+      "best": 0.5235428028233571
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "random",
+      "seed": 7,
+      "sims_to_first_counterexample": null,
+      "best": 0.449408570328697
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 0,
+      "sims_to_first_counterexample": null,
+      "best": 0.5230061797619158
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 1,
+      "sims_to_first_counterexample": null,
+      "best": 0.4202308498515805
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 2,
+      "sims_to_first_counterexample": null,
+      "best": 0.42018335285909814
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 3,
+      "sims_to_first_counterexample": null,
+      "best": 0.4201785009793994
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 4,
+      "sims_to_first_counterexample": null,
+      "best": 0.42013352052827174
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 5,
+      "sims_to_first_counterexample": null,
+      "best": 0.4202495047387984
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 6,
+      "sims_to_first_counterexample": null,
+      "best": 0.4201132468440619
+    },
+    {
+      "template": "FZ-002",
+      "mutant": "M05DerateRampInverted",
+      "strategy": "cem",
+      "seed": 7,
+      "sims_to_first_counterexample": null,
+      "best": 0.5234183679868962
+    }
+  ]
+}

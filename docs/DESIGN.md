@@ -68,6 +68,10 @@ planning layer and the execution/evaluation layer. No code is shared.
 | Evaluation | `evaluate.py` | measurement evaluation / trace analysis |
 | Artefacts | `report.py` | test.guide report, CANape/INCA measurement files |
 | Pipeline | `cli.py pipeline`, `.github/workflows/ci.yml` | CI-triggered SiL stage |
+| Tiers | `env.py` | SiL vs HiL rig (here a **mock**: bus jitter, frame loss, ADC noise, bring-up cost) |
+| Impact analysis | `sut/impact.py`, `data/ownership.yaml` | change → affected functions (CODEOWNERS-style) |
+| Orchestration | `orchestrator.py`, `cli.py bench` | test-plan distribution across SiL workers and HiL rigs |
+| Evidence report | `htmlreport.py`, `.github/workflows/pages.yml` | test.guide-style report portal |
 
 ## 5. Decisions
 
@@ -85,11 +89,28 @@ planning layer and the execution/evaluation layer. No code is shared.
 - **Synthetic everything.** No parameter is an AMG value. The drive is one equivalent motor, not AMG.EA's three
   axial-flux motors.
 
-## 6. Roadmap
+## 6. Mock-HiL and orchestration (v0.3)
+
+- **Tiers.** `env.py` defines SiL (ideal bus, DBC quantisation only) and HiL-mock (per-frame CAN latency jitter
+  0–15 ms, 0.2 % frame loss, ADC noise, 30 s bring-up, real-time execution, one rig). Costs are modelled, so benchmark
+  numbers do not depend on the host. Noise seeds are paired between the reference and the changed software, so a
+  difference is the change and not the dice.
+- **Changes are CI events.** 14 seeded bugs (9 SiL-observable, 4 HiL-only, 1 vehicle-only) and 5 clean changes
+  (refactors and in-spec calibration updates). A change's features are **derived from its diff**: the EMS methods and
+  calibration keys it modifies, mapped through `data/ownership.yaml`. No change is hand-labelled, so the adaptive
+  policy cannot be tuned through its labels.
+- **Policies.** A full (all tests, both tiers), B static (HiL for every test with a `hil` requirement), C adaptive
+  (impact selection, SiL first, escalate a test only if the change touches one of its `hil` requirements, a SiL
+  margin is thin, or a criticality-A margin regressed against the reference). Same ordering, tiers and seeds for
+  all three, so the comparison isolates the policy.
+- **Detection** means a requirement FAILs on the change but not on the reference software, in the same tier with the
+  same noise seed. A FAIL on a clean change is a false alarm, or, as F-006 showed, a latent defect worth chasing.
+
+## 7. Roadmap
 
 | Phase | Content | Status |
 |---|---|---|
-| 1 | Plant, DBC/CAN, EMS + calibration, STL engine, 7+1 catalogue tests, 8 mutants, falsifier, JUnit/MDF4/JSON, CI | **done** |
-| 2 | Fix F-002 with predictive SOP charge limit + online R estimation; time-robustness for reaction-time requirements; falsifier vs. random benchmark over many seeds | next |
-| 3 | Mock-HiL environment (real-time pacing, bus jitter, ADC noise, limited slots, cost model), margin-based escalation and resource-aware scheduling, baselines A/B/C | planned |
-| 4 | Measurement viewer UI (signals + STL envelopes + first violation), deployment | planned |
+| 1 | Plant, DBC/CAN, EMS + calibration, STL engine, catalogue, mutants, falsifier, JUnit/MDF4/JSON, CI | done |
+| 2 | F-002 fixed with predictive SOP + online R estimation; F-003 requirements conflict resolved | done |
+| 3 | Mock-HiL tier (F-004/F-005/F-006 found and fixed), impact analysis from the diff, A/B/C orchestration benchmark, HTML evidence report | done |
+| 4 | Repeated, seed-varied HiL runs for intermittent faults (M12/M13 are caught on only some noise seeds); time-robustness for reaction-time requirements; vehicle-level replay tier for M08-class defects | next |

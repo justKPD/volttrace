@@ -4,25 +4,25 @@
 
 | strategy | bugs_detected | sil_observable_detected | hil_only_detected | vehicle_only_detected | false_alarms_on_clean | mean_hil_minutes | mean_makespan_min | median_ttff_s | clean_change_makespan_min |
 |---|---|---|---|---|---|---|---|---|---|
-| A | 13/14 | 9/9 | 4/4 | 0/1 | 0/5 | 13.1 | 13.1 | 5.4 | 12.8 |
-| B | 13/14 | 9/9 | 4/4 | 0/1 | 0/5 | 12.5 | 12.5 | 5.4 | 12.2 |
-| C | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 3.2 | 3.3 | 4.4 | 0.7 |
+| A | 13/14 | 9/9 | 4/4 | 0/1 | 0/5 | 13.0 | 13.0 | 5.4 | 12.8 |
+| B | 13/14 | 9/9 | 4/4 | 0/1 | 0/5 | 12.4 | 12.4 | 5.4 | 12.2 |
+| C | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 3.1 | 3.2 | 4.4 | 0.7 |
 
 ## Noise seed set 1
 
 | strategy | bugs_detected | sil_observable_detected | hil_only_detected | vehicle_only_detected | false_alarms_on_clean | mean_hil_minutes | mean_makespan_min | median_ttff_s | clean_change_makespan_min |
 |---|---|---|---|---|---|---|---|---|---|
-| A | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 13.1 | 13.1 | 5.1 | 12.8 |
-| B | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 12.5 | 12.5 | 5.1 | 12.2 |
-| C | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 3.2 | 3.3 | 4.4 | 0.7 |
+| A | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 13.0 | 13.0 | 5.1 | 12.8 |
+| B | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 12.4 | 12.4 | 5.1 | 12.2 |
+| C | 12/14 | 9/9 | 3/4 | 0/1 | 0/5 | 3.1 | 3.2 | 4.4 | 0.7 |
 
 ## Noise seed set 2
 
 | strategy | bugs_detected | sil_observable_detected | hil_only_detected | vehicle_only_detected | false_alarms_on_clean | mean_hil_minutes | mean_makespan_min | median_ttff_s | clean_change_makespan_min |
 |---|---|---|---|---|---|---|---|---|---|
-| A | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 13.1 | 13.1 | 4.8 | 12.8 |
-| B | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 12.5 | 12.5 | 4.8 | 12.2 |
-| C | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 3.2 | 3.3 | 4.2 | 0.7 |
+| A | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 13.0 | 13.0 | 4.8 | 12.8 |
+| B | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 12.4 | 12.4 | 4.8 | 12.2 |
+| C | 11/14 | 9/9 | 2/4 | 0/1 | 0/5 | 3.1 | 3.2 | 4.2 | 0.7 |
 
 ## Per change (seed set 0)
 
@@ -64,9 +64,9 @@
 | M13ResistanceEstimatorNoGate | A | TC-008@hil_mock | 12.8 | 12.8 | 769.3 |
 | M13ResistanceEstimatorNoGate | B | TC-008@hil_mock | 12.2 | 12.2 | 733.4 |
 | M13ResistanceEstimatorNoGate | C | - | 0.0 | 0.1 |  |
-| M14MissingVoltageAsZero | A | FZ-003-CX2@hil_mock, FZ-003-CX@hil_mock, TC-001@hil_mock, TC-002@hil_mock, TC-003@hil_mock, TC-004@hil_mock, TC-007@hil_mock, TC-008@hil_mock | 15.1 | 15.1 | 42.0 |
-| M14MissingVoltageAsZero | B | FZ-003-CX2@hil_mock, FZ-003-CX@hil_mock, TC-001@hil_mock, TC-002@hil_mock, TC-003@hil_mock, TC-004@hil_mock, TC-007@hil_mock, TC-008@hil_mock | 14.5 | 14.5 | 42.0 |
-| M14MissingVoltageAsZero | C | FZ-003-CX2@hil_mock, FZ-003-CX@hil_mock, TC-001@hil_mock, TC-002@hil_mock, TC-003@hil_mock, TC-004@hil_mock, TC-007@hil_mock, TC-008@hil_mock | 14.5 | 14.5 | 44.2 |
+| M14MissingVoltageAsZero | A | TC-001@hil_mock | 12.9 | 12.9 | 254.8 |
+| M14MissingVoltageAsZero | B | TC-001@hil_mock | 12.3 | 12.3 | 254.8 |
+| M14MissingVoltageAsZero | C | TC-001@hil_mock | 12.3 | 12.3 | 349.0 |
 | M08NoRegenFade | A | - | 12.8 | 12.8 |  |
 | M08NoRegenFade | B | - | 12.2 | 12.2 |  |
 | M08NoRegenFade | C | - | 0.7 | 0.7 |  |

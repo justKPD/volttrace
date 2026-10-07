@@ -228,6 +228,14 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_report(args: argparse.Namespace) -> int:
+    from volttrace.htmlreport import build
+
+    path = build(Path(args.out), Path(args.requirements), Path(args.catalog))
+    print(f"evidence report written to {path}")
+    return 0
+
+
 def cmd_pipeline(args: argparse.Namespace) -> int:
     """CI entry point: static checks -> requirement/catalog lint -> SiL execution -> gate + report."""
     out = Path(args.out)
@@ -290,6 +298,9 @@ def main(argv: list[str] | None = None) -> int:
     common(p)
     p.add_argument("--seeds", type=int, nargs="+", default=[0], help="noise seed sets for the HiL-mock runs")
     p.set_defaults(fn=cmd_bench)
+    p = sub.add_parser("report", help="self-contained HTML evidence report from out/ (+ fresh evidence simulations)")
+    common(p)
+    p.set_defaults(fn=cmd_report)
     p = sub.add_parser("pipeline", help="static checks -> lint -> SiL run -> gate (CI entry point)")
     common(p)
     p.add_argument("--no-mdf", action="store_true")
