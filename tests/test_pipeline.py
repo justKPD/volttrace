@@ -8,6 +8,7 @@ from volttrace.catalog import lint, load_catalog
 from volttrace.cli import _gate, _run_case, main, mutation_matrix
 from volttrace.evaluate import RequirementSet
 from volttrace.falsify import Template, falsify
+from volttrace.sut.mutants import sut_factory
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +31,7 @@ def test_clean_sut_has_no_blocking_failure_and_no_thin_margins(reqset, cases):
     records = [_run_case(c, reqset, "baseline", None, False) for c in cases]
     blocking, xfail, _ = _gate(records)
     assert blocking == []
-    assert xfail == ["FZ-003-CX (F-002)"]  # open finding, tracked until the SOP fix lands
+    assert xfail == []
     for rec in records:
         if "known_issue" not in rec.extra:
             assert {r.verdict for r in rec.results} <= {"PASS"}, rec.case.id
@@ -41,10 +42,16 @@ def test_every_sil_observable_mutant_is_killed(reqset, cases):
     assert m["sil_killable_killed"] == m["sil_killable_total"]
 
 
-def test_falsifier_rediscovers_f002(reqset):
+def test_falsifier_finds_f002_when_the_sop_fix_is_removed(reqset):
     tpl = Template.load(ROOT / "falsify" / "FZ-003_regen.yaml")
-    res = falsify(tpl, reqset, strategy="random", budget=30, seed=1)
+    res = falsify(tpl, reqset, sut_factory("M09SopAssumesNewPack"), "M09", strategy="random", budget=40, seed=1)
     assert res.found and res.best.per_target["REQ-HV-002"] < 0
+
+
+def test_falsifier_finds_no_counterexample_on_the_fixed_sut(reqset):
+    tpl = Template.load(ROOT / "falsify" / "FZ-003_regen.yaml")
+    res = falsify(tpl, reqset, strategy="cem", budget=36, seed=1)
+    assert not res.found
 
 
 def test_cli_run_writes_junit_json_and_readable_mdf(tmp_path):

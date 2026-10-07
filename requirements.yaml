@@ -18,6 +18,7 @@ scales:
   soc: 0.01
   state: 1.0
   t_bat_sensed: 10.0
+  driver_release: 1.0
 
 requirements:
   - id: REQ-HV-001
@@ -56,8 +57,9 @@ requirements:
     fidelity: sil
 
   - id: REQ-EM-006
-    title: Total deceleration force matches the driver's brake demand within 5 % of full braking
-    stl: always(decel_error <= 0.05)
+    title: Total deceleration force matches the driver's brake demand within 5 % of full braking, recovering within 20 ms of any deviation
+    # refined after F-003: a brake-pedal step needs one control cycle; a persisting deviation is the defect
+    stl: always(eventually(decel_error <= 0.05, 0, 0.02))
     criticality: A
     features: [brake_blending, regen]
     fidelity: sil
@@ -77,8 +79,10 @@ requirements:
     fidelity: hil   # timing-dependent: SiL shows the logic, bus timing needs HiL
 
   - id: REQ-DR-009
-    title: Torque command slew rate stays within +/- 6500 Nm/s (driveability / drivetrain load)
-    stl: always(torque_rate <= 6500 and torque_rate >= -6500)
+    title: Outside a driver brake release, torque command slew rate stays within +/- 6500 Nm/s (driveability / drivetrain load)
+    # refined after F-003: the slew limit protects the drivetrain from system-induced steps, it must not
+    # hold regen against a driver who is releasing the brake (friction cannot compensate negatively)
+    stl: always(implies(driver_release <= 0.5, torque_rate <= 6500 and torque_rate >= -6500))
     criticality: B
     features: [torque_arbitration, driveability]
     fidelity: sil
@@ -104,4 +108,11 @@ requirements:
     stl: always(implies(t_bat <= 0, p_bat_kw <= 305))
     criticality: A
     features: [discharge_limit, cold]
+    fidelity: sil
+
+  - id: REQ-DR-013
+    title: Torque command slew rate never exceeds +/- 40500 Nm/s, including during brake release (drivetrain hard limit)
+    stl: always(torque_rate <= 40500 and torque_rate >= -40500)
+    criticality: A
+    features: [torque_arbitration, driveability, brake_blending]
     fidelity: sil

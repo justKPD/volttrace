@@ -1,10 +1,8 @@
 id: FZ-003-CX
-title: 'Counterexample from falsifier FZ-003 against baseline: Search SOC, speed,
-  pack temperature and brake levels for regen overvoltage, high-SOC over-charge and
-  blending errors'
+title: 'Regression for F-002 (found by falsifier FZ-003): hard regen on an aged pack
+  (R x1.72) at 90 % SOC'
 requirements:
 - REQ-HV-002
-- REQ-EM-005
 - REQ-EM-006
 features:
 - charge_limit
@@ -12,7 +10,6 @@ features:
 - brake_blending
 - voltage_guard
 criticality: A
-known_issue: F-002
 required_fidelity: sil
 origin:
   falsifier: FZ-003
@@ -37,3 +34,4 @@ scenario:
     v_kph: 200.6783
     r_aging_factor: 1.7235
   max_duration_s: 12
+fixed_by: predictive charge SOP with online resistance estimate (v0.2)

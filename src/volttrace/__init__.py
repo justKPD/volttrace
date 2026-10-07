@@ -1,3 +1,3 @@
 """VoltTrace: falsification-driven, margin-aware SiL-first validation of HV energy management."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

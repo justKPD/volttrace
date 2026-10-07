@@ -16,8 +16,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-import numpy as np
-
 from volttrace.sut.ems import Calibration, EnergyManager
 
 
@@ -41,10 +39,10 @@ class M03NoFrictionCompensation(EnergyManager):
 
     def blend_friction(self, decel_force_req: float, torque_cmd: float) -> float:
         c = self.cal
-        regen_req = decel_force_req * c.wheel_radius_m / c.gear_ratio
+        regen_req = decel_force_req * c.wheel_radius_m * c.gear_efficiency / c.gear_ratio
         t_regen_max = self.torque_limits(self._omega_last, 0.0, self._p_chg_last)[1]
         planned = min(regen_req, t_regen_max)
-        return max(0.0, decel_force_req - planned * c.gear_ratio / c.wheel_radius_m)
+        return max(0.0, decel_force_req - planned * c.gear_ratio / (c.gear_efficiency * c.wheel_radius_m))
 
     def torque_limits(self, omega: float, p_dis_w: float, p_chg_w: float) -> tuple[float, float]:
         self._omega_last, self._p_chg_last = omega, p_chg_w
@@ -69,9 +67,8 @@ class M05DerateRampInverted(EnergyManager):
 class M06RateLimiterPerMs(EnergyManager):
     """Torque-rate limit applied per millisecond count instead of per second."""
 
-    def rate_limit(self, target: float, dt: float) -> float:
-        step = self.cal.torque_rate_max_nm_s * dt * 10.0
-        return self.torque_prev + float(np.clip(target - self.torque_prev, -step, step))
+    def __init__(self, cal: Calibration) -> None:
+        super().__init__(Calibration({**cal.raw, "torque_rate_max_nm_s": cal.raw["torque_rate_max_nm_s"] * 10.0}))
 
 
 class M07VoltageGuardSign(EnergyManager):
@@ -89,6 +86,21 @@ class M08NoRegenFade(EnergyManager):
 
     def regen_fade(self, v: float) -> float:
         return 1.0 if v > 0.05 else 0.0
+
+
+class M10NoBrakeReleaseRampOut(EnergyManager):
+    """Brake-release exception dropped: regen ramps out at the normal slew rate (re-introduces F-003)."""
+
+    def rate_limit(self, target: float, dt: float) -> float:
+        self.release_timer = 0.0
+        return super().rate_limit(target, dt)
+
+
+class M09SopAssumesNewPack(EnergyManager):
+    """Charge SOP uses the nominal (new-pack) resistance: no online estimate, no end-of-life default."""
+
+    def r_for_sop(self, t_bat: float) -> float:
+        return self.r_nominal(t_bat)
 
 
 @dataclass(frozen=True)
@@ -115,6 +127,8 @@ MUTANTS: dict[str, MutantInfo] = {
         _info(M05DerateRampInverted, ("thermal_derating",)),
         _info(M06RateLimiterPerMs, ("torque_arbitration", "driveability")),
         _info(M07VoltageGuardSign, ("voltage_guard", "discharge_limit")),
+        _info(M09SopAssumesNewPack, ("charge_limit", "regen", "voltage_guard")),
+        _info(M10NoBrakeReleaseRampOut, ("brake_blending", "torque_arbitration", "regen")),
         _info(M08NoRegenFade, ("regen", "brake_blending"), fidelity="vehicle"),
     )
 }

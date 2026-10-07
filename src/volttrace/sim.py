@@ -41,6 +41,7 @@ CHANNELS: dict[str, str] = {
     "age_bms": "s",
     "t_bat_sensed": "degC",
     "soc_sensed": "-",
+    "driver_release": "-",
 }
 
 
@@ -81,6 +82,7 @@ def simulate(
     log = {k: np.empty(n_max) for k in CHANNELS}
     t_axis = np.empty(n_max)
     torque_prev = 0.0
+    brake_prev, t_release = 0.0, -1e9
     tail = None  # keep logging 1 s after the driver says it is done
     n = 0
     for k in range(n_max):
@@ -133,6 +135,11 @@ def simulate(
         row["age_bms"][k] = age["BMS_1"]
         row["t_bat_sensed"][k] = rx.get("BMS_T_bat", np.nan)
         row["soc_sensed"][k] = rx.get("BMS_SOC", np.nan) / 100.0
+        # 1 while the driver is releasing the brake (decrease within the last 0.3 s), else 0
+        if brake < brake_prev - 1e-6:
+            t_release = t
+        brake_prev = brake
+        row["driver_release"][k] = 1.0 if t - t_release <= 0.3 else 0.0
         torque_prev = out.torque_cmd_nm
         n = k + 1
         if driver.done:

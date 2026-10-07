@@ -1,0 +1,38 @@
+id: FZ-003-CX2
+title: 'Regression for F-003: driver releases the brake 0.74 -> 0.17 during heavy
+  regen near full charge'
+requirements:
+- REQ-EM-006
+- REQ-DR-009
+- REQ-DR-013
+features:
+- brake_blending
+- regen
+- torque_arbitration
+criticality: A
+required_fidelity: sil
+origin:
+  finding: F-003 found by falsifier FZ-003 on v0.2-pre (robustness -3.01)
+  scenario: re-derived by falsifying FZ-003 against mutant M10 (seed 2, 11 sims, robustness
+    -3.50) so the test discriminates the fix
+fixed_by: regen ramp-out exception during driver brake release + gear-efficiency correction
+  (v0.2)
+scenario:
+  driver: profile
+  args:
+    rows:
+    - t: 0.0
+      pedal: 0.0
+      brake: 0.7411
+    - t: 5.0
+      pedal: 0.0
+      brake: 0.1704
+    - t: 10.0
+      pedal: 0.0
+      brake: 0.0
+  initial:
+    soc: 0.9554
+    t_bat_c: 11.2463
+    v_kph: 146.2289
+    r_aging_factor: 1.5558
+  max_duration_s: 12

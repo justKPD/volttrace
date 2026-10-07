@@ -6,11 +6,14 @@ motor_torque_peak_nm: 900.0
 motor_power_peak_w: 600000.0
 motor_efficiency: 0.93
 gear_ratio: 9.0
+gear_efficiency: 0.97
 wheel_radius_m: 0.36
 brake_force_max_n: 23500.0     # wheel force at 100 % brake pedal (~1.0 g)
 omega_min_rad_s: 50.0          # floor for power->torque conversion
 regen_fade_speed_mps: [1.0, 4.0]   # regen ramps from 0 at 1 m/s to full at 4 m/s
 torque_rate_max_nm_s: 6000.0
+torque_rate_release_nm_s: 40000.0   # regen ramp-out while the driver releases the brake (F-003)
+brake_release_window_s: 0.3
 
 # Discharge power limit vs SOC (kW)
 dis_soc_bp:  [0.00, 0.05, 0.10, 0.20, 0.30, 1.00]
@@ -37,6 +40,16 @@ v_min_guard_v: 600.0
 v_max_guard_v: 805.0
 v_guard_down_per_v_s: 0.5     # guard factor removed per volt beyond the guard per second
 v_guard_recover_per_s: 0.3    # guard factor restored per second once back inside
+
+# State of power (predictive charge limit, fix for F-002)
+v_sop_max_v: 810.0             # terminal-voltage ceiling the charge SOP plans for (5 V under the hard limit)
+r_nom_25c_ohm: 0.060           # nominal (beginning-of-life) pack resistance; supplier data in a real BMS
+r_nom_temp_bp_c:   [-20.0, 0.0, 10.0, 25.0, 40.0, 55.0]
+r_nom_temp_factor: [4.0,   2.2, 1.5,  1.0,  0.85, 0.80]
+r_est_min_di_a: 50.0           # minimum current step between frames for a resistance sample
+r_est_gain: 0.2                # first-order filter gain on the resistance ratio
+r_est_min_samples: 5           # samples before the estimate replaces the end-of-life assumption
+r_eol_ratio: 2.0               # end-of-life resistance ratio (pack replacement threshold)
 
 # Diagnostics
 can_timeout_s: 0.100

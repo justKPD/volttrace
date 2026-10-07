@@ -2,6 +2,7 @@
 
 It runs once per 10 ms task, using only CAN-received values. It computes:
   * discharge / charge power limits (SOC map, cold map, thermal derating, voltage guard)
+  * predictive charge state-of-power from an online pack-resistance estimate
   * driver torque arbitration under those limits
   * regen / friction brake blending that keeps the total deceleration force
   * a torque-rate limiter
@@ -73,6 +74,12 @@ class EnergyManager:
         self.clock = 0.0
         self.g_dis = 1.0
         self.g_chg = 1.0
+        # online pack-resistance estimate, as a ratio to the nominal R(T) map
+        self.r_ratio = 1.0
+        self.r_samples = 0
+        self._vi_prev: tuple[float, float] | None = None
+        self.brake_prev = 0.0
+        self.release_timer = 0.0
 
     # ---------------------------------------------------------------- limits
     def soc_discharge_kw(self, soc: float) -> float:
@@ -135,6 +142,51 @@ class EnergyManager:
             return max(0.0, g - c.v_guard_down_per_v_s * excess_v * dt)
         return min(1.0, g + c.v_guard_recover_per_s * dt)
 
+    # ------------------------------------------------- state of power (SOP)
+    def r_nominal(self, t_bat: float) -> float:
+        c = self.cal
+        return c.r_nom_25c_ohm * float(np.interp(t_bat, c.r_nom_temp_bp_c, c.r_nom_temp_factor))
+
+    def update_resistance(self, rx: dict[str, float], age: dict[str, float]) -> None:
+        """Estimate pack resistance online from consecutive fresh BMS frames: R = -dV/dI.
+
+        Only current steps of at least `r_est_min_di_a` are used, so the 0.1 V / 0.1 A CAN
+        resolution stays a small error. The estimate is kept as a ratio to the nominal R(T)
+        map, which makes it an ageing (state-of-health) estimate that survives temperature changes.
+        """
+        c = self.cal
+        if age.get("BMS_1", 1.0) != 0.0 or "BMS_I_bat" not in rx:
+            return
+        v, i = rx["BMS_V_bus"], rx["BMS_I_bat"]
+        if self._vi_prev is not None:
+            v0, i0 = self._vi_prev
+            di = i - i0
+            if abs(di) >= c.r_est_min_di_a:
+                ratio = -(v - v0) / di / self.r_nominal(rx["BMS_T_bat"])
+                if 0.3 < ratio < 5.0:
+                    first = self.r_samples == 0
+                    self.r_ratio = ratio if first else self.r_ratio + c.r_est_gain * (ratio - self.r_ratio)
+                    self.r_samples += 1
+        self._vi_prev = (v, i)
+
+    def r_for_sop(self, t_bat: float) -> float:
+        """Until the estimate has converged, assume an end-of-life pack (conservative)."""
+        c = self.cal
+        ratio = self.r_ratio if self.r_samples >= c.r_est_min_samples else c.r_eol_ratio
+        return self.r_nominal(t_bat) * max(ratio, 0.8)
+
+    def charge_sop(self, v_bus: float, i_bat: float, t_bat: float) -> float:
+        """Predictive charge-power limit that keeps the terminal voltage at or below `v_sop_max_v`.
+
+        With V = OCV - I*R, charging at the voltage ceiling gives P = Vmax * (Vmax - OCV) / R.
+        OCV is reconstructed from the measured V and I. This acts *before* the voltage moves,
+        unlike the reactive guard (finding F-002).
+        """
+        c = self.cal
+        r = self.r_for_sop(t_bat)
+        ocv = v_bus + i_bat * r
+        return max(0.0, c.v_sop_max_v * (c.v_sop_max_v - ocv) / r)
+
     # ----------------------------------------------------------- diagnostics
     def diagnose(self, rx: dict[str, float], age: dict[str, float], dt: float) -> int:
         c = self.cal
@@ -167,13 +219,23 @@ class EnergyManager:
         return float(np.clip((v - lo) / (hi - lo), 0.0, 1.0))
 
     def rate_limit(self, target: float, dt: float) -> float:
-        step = self.cal.torque_rate_max_nm_s * dt
-        return self.torque_prev + float(np.clip(target - self.torque_prev, -step, step))
+        """Slew-rate limit on the torque command.
+
+        Exception (finding F-003): while the driver is releasing the brake, regen torque may ramp
+        *out* at `torque_rate_release_nm_s`. Friction cannot go negative, so a slow regen ramp-out
+        would over-brake the car against the driver's request.
+        """
+        c = self.cal
+        step = c.torque_rate_max_nm_s * dt
+        up = step
+        if self.release_timer > 0.0 and self.torque_prev < 0.0:
+            up = c.torque_rate_release_nm_s * dt
+        return self.torque_prev + float(np.clip(target - self.torque_prev, -step, up))
 
     def blend_friction(self, decel_force_req: float, torque_cmd: float) -> float:
         """The friction brake supplies whatever the motor does not regenerate."""
         c = self.cal
-        regen_force = max(0.0, -torque_cmd) * c.gear_ratio / c.wheel_radius_m
+        regen_force = max(0.0, -torque_cmd) * c.gear_ratio / (c.gear_efficiency * c.wheel_radius_m)
         return max(0.0, decel_force_req - regen_force)
 
     # ---------------------------------------------------------------- step
@@ -190,12 +252,20 @@ class EnergyManager:
         v_bus = rx.get("BMS_V_bus", 0.0)
 
         fault = self.diagnose(rx, age, dt)
+        self.update_resistance(rx, age)
+        if brake < self.brake_prev - 1e-6:
+            self.release_timer = self.cal.brake_release_window_s
+        else:
+            self.release_timer = max(0.0, self.release_timer - dt)
+        self.brake_prev = brake
         if fault and not self.fault_code:
             self.fault_code = fault  # latched until the next key cycle
         cold_dis, cold_chg = self.cold_factors(t_bat)
         derate = self.derate_factor(t_bat, t_inv)
         p_dis = self.soc_discharge_kw(soc) * 1e3 * cold_dis * derate
         p_chg = self.soc_charge_kw(soc) * 1e3 * cold_chg * derate
+        if "BMS_I_bat" in rx:
+            p_chg = min(p_chg, self.charge_sop(v_bus, rx["BMS_I_bat"], t_bat))
         p_dis, p_chg = self.voltage_guard(v_bus, p_dis, p_chg, dt)
 
         if self.fault_code:
@@ -212,7 +282,8 @@ class EnergyManager:
         t_drive_max, t_regen_max = self.torque_limits(omega, p_dis, p_chg)
         decel_force_req = brake * c.brake_force_max_n
         if brake > 0.0:
-            regen_req = decel_force_req * c.wheel_radius_m / c.gear_ratio
+            # wheel force -> motor torque; in regen the gearbox losses add to the braking force
+            regen_req = decel_force_req * c.wheel_radius_m * c.gear_efficiency / c.gear_ratio
             target = -min(regen_req, t_regen_max * self.regen_fade(v))
         else:
             target = pedal * t_drive_max
