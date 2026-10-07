@@ -138,7 +138,7 @@ def bar_chart(title: str, unit: str, cats: list[str], series: list[tuple[str, li
         out.append(f'<text class="cat" x="{x0 - 10}" y="{y + row_h / 2 + 2:.1f}" text-anchor="end">{esc(cat)}</text>')
         for si, (name, vals) in enumerate(series):
             by = y + 6 + si * 14
-            v = vals[ci]
+            v = round(vals[ci], 1)
             wbar = max(sx(v) - x0, 1.0)
             tip = esc(f"{cat} · {name}: {_fmt(v)} {unit}")
             out.append(
@@ -384,8 +384,10 @@ def build(out: Path, requirements: Path, catalog: Path) -> Path:
     )
 
     if bench:
-        strategies = ["A", "B", "C"]
-        names = {"A": "A · full", "B": "B · static", "C": "C · adaptive"}
+        strategies = [
+            s for s in "ABCD" if s in {r["strategy"] for r in bench["summary_per_seed"][str(bench["seeds"][0])]}
+        ]
+        names = {"A": "A · full", "B": "B · static", "C": "C · adaptive", "D": "D · noise-aware"}
         seeds = [str(s) for s in bench["seeds"]]
         rows = {s: {r["strategy"]: r for r in bench["summary_per_seed"][s]} for s in seeds}
         mean = lambda st, k: float(np.mean([rows[s][st][k] for s in seeds]))  # noqa: E731
@@ -440,7 +442,9 @@ def build(out: Path, requirements: Path, catalog: Path) -> Path:
             + "<p class='note'><b>A · full</b>: every test on SiL and on HiL. <b>B · static</b>: every test on SiL, and "
             "on HiL every test that traces to a requirement declared <code>hil</code>. <b>C · adaptive</b>: impact-selected "
             "tests on SiL; a test escalates to HiL only if the change touches one of its <code>hil</code> requirements, "
-            "a SiL margin is thin, or a criticality-A margin regressed against the unchanged software.</p>"
+            "a SiL margin is thin, or a criticality-A margin regressed against the unchanged software. <b>D · noise-aware</b>: "
+            "C, plus a change to code that consumes raw measurements escalates its impacted tests, and each HiL run is "
+            "repeated on 3 noise seeds, stopping at the first failure.</p>"
             + chart
             + table(
                 [
@@ -462,9 +466,10 @@ def build(out: Path, requirements: Path, catalog: Path) -> Path:
             "analysis rightly escalates widely)</h3>"
             + gantt(caption(ha), ha["timeline"], tmax)
             + gantt(caption(hc), hc["timeline"], tmax)
-            + "<p class='note'>Honest limits: C misses M13, an intermittent noise-triggered bug that even A only catches on "
-            "1 of 3 noise seeds. One HiL run is weak evidence against intermittent faults. Repeated, "
-            "seed-varied HiL runs are the next step.</p>"
+            + "<p class='note'>Honest limits: one HiL run is weak evidence against intermittent, noise-triggered faults. Policy D repeats HiL runs "
+            "on 3 noise seeds for changes to measurement-consuming code and finds at least as many bugs as A on every seed set, at "
+            "about 70 % of A's rig time. No policy catches M13 reliably, and D spends rig time on changes SiL has already failed, "
+            "because no policy uses fail-fast.</p>"
         )
 
     if mm:

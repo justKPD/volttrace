@@ -15,11 +15,13 @@ does three things a regression suite alone does not:
 
 1. **It searches for failures nobody wrote a test for**, using a falsifier that minimises the margin over the scenario space.
 2. **It measures its own test suite** with 14 seeded bugs, including 4 that only a HiL rig can expose.
-3. **It decides where each test should run** (SiL or HiL) for each code change. On the published SiL-first
-   e-drive testing question of test time vs. rig time, it cuts rig time per change by ~75 % with no false alarms.
+3. **It decides where each test should run** (SiL or HiL) for each code change. This addresses the published
+   SiL-first e-drive question of test time vs. rig time. The adaptive policy cuts rig time per change by ~75 %
+   with no false alarms. A noise-aware variant finds at least as many bugs as running everything on the rig, at
+   ~30 % less rig time.
 
 **Evidence report:** every finding with its measurements, the benchmark and the kill matrix are in one generated page.
-Download it from the `validation-evidence` CI artefact, or from GitHub Pages once Pages is enabled.
+Live at **https://justkpd.github.io/volttrace/**, rebuilt from scratch on every push.
 
 ## What the pipeline found in its own "clean" code
 
@@ -35,25 +37,30 @@ re-introducing it: [`docs/findings/`](docs/findings/README.md).
 | F-005 | **first run on the HiL tier** | temperature plausibility check without debounce: one noisy frame latches a fault |
 | F-006 | a **"false alarm" on a clean change** that turned out to be real | missing pack voltage read as 0 V at power-up latched the discharge limit for ~3 s |
 
-## Where should each test run? (A/B/C benchmark)
+## Where should each test run? (A/B/C/D benchmark)
 
 Every software change is a CI event: 14 seeded bugs (9 SiL-observable, 4 HiL-only, 1 vehicle-only) and 5 clean
-changes (refactors, in-spec calibration updates). A change's features are **derived from its diff** (the EMS methods
-and calibration keys it modifies, mapped through an ownership file), not hand-labelled. All policies use the same
+changes (refactors, in-spec calibration updates). A change's features, and whether it touches code that consumes raw
+measurements, are **derived from its diff** through an ownership file, not hand-labelled. All policies use the same
 tests, tiers, ordering and paired noise seeds.
 
-| Policy | Bugs found (noise seed sets 0 / 1 / 2) | False alarms | HiL rig-min per change | Verdict on a clean change |
-|---|---|---|---|---|
-| **A** full: every test on SiL and HiL | 13 / 12 / 11 of 14 | 0 / 5 | 13.0 | 12.8 min |
-| **B** static: HiL for tests with declared-HiL requirements | 13 / 12 / 11 of 14 | 0 / 5 | 12.4 | 12.2 min |
-| **C** adaptive: impact selection, SiL first, escalate on touched HiL requirements, thin margins or margin regression | 12 / 12 / 11 of 14 | 0 / 5 | **3.1** | **0.7 min** |
+| Policy | Bugs found (noise seed sets 0 / 1 / 2) | HiL-only bugs found | False alarms | HiL rig-min per change | Verdict on a clean change |
+|---|---|---|---|---|---|
+| **A** full: every test on SiL and HiL | 13 / 12 / 11 of 14 | 4 / 3 / 2 of 4 | 0 / 5 | 13.0 | 12.8 min |
+| **B** static: HiL for tests with declared-HiL requirements | 13 / 12 / 11 | 4 / 3 / 2 | 0 / 5 | 12.4 | 12.2 min |
+| **C** adaptive: impact selection, SiL first, escalate on touched HiL requirements, thin margins or margin regression | 12 / 12 / 11 | 3 / 3 / 2 | 0 / 5 | **3.1** | **0.7 min** |
+| **D** adaptive + noise-aware: C, plus changes to measurement-consuming code escalate and repeat each HiL run on 3 noise seeds | **13 / 12 / 12** | **4 / 3 / 3** | 0 / 5 | 9.1–9.8 | **0.7 min** |
 
-- C finds **every SiL-observable bug** (9/9 on every seed), each first on SiL. Some still get a short HiL check when a margin regressed (M02, M03: ~0.7 rig-min).
-- C matches A on 2 of 3 seed sets. Its one miss is M13, an **intermittent** noise-triggered bug that even A only
-  catches on 1 of 3 seeds. The real lesson: one HiL run is weak evidence against intermittent faults.
-- When a change is broad (M14 modifies the top-level `step()`), impact analysis escalates widely and C costs about as
-  much as A. It is **slower** to its first failure there (5.8 vs 4.2 min). Full table:
-  [`docs/results/benchmark.md`](docs/results/benchmark.md). CI regenerates seed set 0 and fails if a single number changes.
+- **C** is the cheap everyday policy. It finds every SiL-observable bug (9/9 on every seed), each first on SiL, at a
+  quarter of A's rig time, and it gives a clean change its verdict in under a minute.
+- **D** finds at least as many bugs as running everything once (A) on every seed set, and more on one, at ~30 % less
+  rig time than A.
+  The reason is that intermittent, noise-triggered faults need more than one HiL draw: one HiL run is weak evidence.
+- **Honest limits.** No policy reliably catches M13: D catches it on 1 of 3 seed sets, as A does. D also spends rig
+  time on changes SiL has already failed (M04, M09), because no policy here uses fail-fast. When a change is broad
+  (M14 modifies the top-level `step()`), impact analysis rightly escalates widely, and C reaches its first failure
+  later than A (5.8 vs 4.2 min). Full table: [`docs/results/benchmark.md`](docs/results/benchmark.md). CI
+  regenerates seed set 0 and fails if a single number changes.
 
 ## Is the falsifier any good?
 
@@ -98,10 +105,10 @@ pip install -e ".[dev]"
 
 volttrace pipeline                 # static checks -> lint -> SiL run -> gate (CI entry point)
 volttrace mutants                  # SiL kill matrix
-volttrace bench --seeds 0 1 2      # A/B/C orchestration benchmark (~9 min)
+volttrace bench --seeds 0 1 2      # A/B/C/D orchestration benchmark (~15 min)
 volttrace report                   # HTML evidence report -> out/site/index.html
 volttrace falsify falsify/FZ-003_regen.yaml --sut M09SopAssumesNewPack --seed 1   # rediscover F-002
-pytest -q                          # 34 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
+pytest -q                          # 36 tests: STL semantics vs brute force, CAN vs cantools, physics, gates, policies
 ```
 
 ## What this is and is not

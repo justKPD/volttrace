@@ -54,3 +54,19 @@ def test_clean_change_is_cheap_and_raises_no_alarm(runner):
 def test_full_strategy_runs_every_test_on_both_tiers(runner):
     o = run_strategy("A", change("C01RefactorBlendFriction"), runner)
     assert o.sil_jobs == o.hil_jobs == len(FAST)
+
+
+def test_noise_sensitivity_is_derived_and_clean_changes_are_not_flagged():
+    flagged = {c.name for c in all_changes() if c.noise_sensitive}
+    assert {"M11CanTimeoutTooTight", "M12PlausibilityNoDebounce", "M13ResistanceEstimatorNoGate"} <= flagged
+    assert not any(c.noise_sensitive for c in all_changes() if not c.buggy)
+
+
+def test_noise_aware_policy_repeats_hil_runs_and_stops_at_first_failure(runner):
+    o = run_strategy("D", change("M12PlausibilityNoDebounce"), runner)
+    hil = [e for e in o.timeline if e["env"] == "hil_mock"]
+    assert any("run 1/3" in e["reason"] for e in hil)
+    for test in {e["test"] for e in hil}:
+        runs = [e for e in hil if e["test"] == test]
+        assert len(runs) <= 3
+        assert all(not e["new_failures"] for e in runs[:-1])  # repetition stops at the first failure

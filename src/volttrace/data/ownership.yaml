@@ -42,3 +42,8 @@ calibration:
   cold:                 [cold, discharge_limit, charge_limit]
   regen_fade:           [regen, brake_blending]
   brake_force:          [brake_blending]
+# Code that consumes raw measurements (sensor values, frame timing). Faults here tend to be
+# intermittent: they depend on noise and bus jitter, so a single HiL run is weak evidence.
+noise_sensitive:
+  methods:     [update_resistance, r_for_sop, charge_sop, diagnose, step]
+  calibration: [r_est, r_eol, can_timeout, diag_startup, t_bat_plaus]

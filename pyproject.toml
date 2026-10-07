@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "volttrace"
-version = "0.4.0"
+version = "0.5.0"
 description = "Falsification-driven, margin-aware SiL-first validation of HV energy management (synthetic)"
 readme = "README.md"
 requires-python = ">=3.11"

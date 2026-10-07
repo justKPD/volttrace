@@ -101,7 +101,9 @@ planning layer and the execution/evaluation layer. No code is shared.
   policy cannot be tuned through its labels.
 - **Policies.** A full (all tests, both tiers), B static (HiL for every test with a `hil` requirement), C adaptive
   (impact selection, SiL first, escalate a test only if the change touches one of its `hil` requirements, a SiL
-  margin is thin, or a criticality-A margin regressed against the reference). Same ordering, tiers and seeds for
+  margin is thin, or a criticality-A margin regressed against the reference), D noise-aware (C, plus a change to
+  code that consumes raw measurements escalates its impacted tests, and each HiL run is repeated on 3 independent
+  noise seeds, stopping at the first failure; `noise_sensitive` in `ownership.yaml`). Same ordering, tiers and seeds for
   all three, so the comparison isolates the policy.
 - **Detection** means a requirement FAILs on the change but not on the reference software, in the same tier with the
   same noise seed. A FAIL on a clean change is a false alarm, or, as F-006 showed, a latent defect worth chasing.
@@ -113,4 +115,5 @@ planning layer and the execution/evaluation layer. No code is shared.
 | 1 | Plant, DBC/CAN, EMS + calibration, STL engine, catalogue, mutants, falsifier, JUnit/MDF4/JSON, CI | done |
 | 2 | F-002 fixed with predictive SOP + online R estimation; F-003 requirements conflict resolved | done |
 | 3 | Mock-HiL tier (F-004/F-005/F-006 found and fixed), impact analysis from the diff, A/B/C orchestration benchmark, HTML evidence report | done |
-| 4 | Repeated, seed-varied HiL runs for intermittent faults (M12/M13 are caught on only some noise seeds); time-robustness for reaction-time requirements; vehicle-level replay tier for M08-class defects | next |
+| 4 | Evidence report + Pages; falsifier benchmark; policy D: noise-sensitivity from the diff, repeated seed-varied HiL runs for intermittent faults | done |
+| 5 | Fail-fast across a change's jobs; a confidence model for "no failure in k noisy runs"; time-robustness for reaction-time requirements; vehicle-level replay tier for M08-class defects | next |

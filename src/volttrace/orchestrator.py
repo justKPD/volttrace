@@ -2,7 +2,7 @@
 
 Every change is a CI event. It is either one of the seeded bugs (mutants) or a *clean* change
 (a refactor or an in-spec calibration tweak), and it declares the features it touches, the way a
-commit touches known modules. Three policies decide what to run:
+commit touches known modules. Four policies decide what to run:
 
   A  full      every test on SiL and on HiL-mock
   B  static    every test on SiL; on HiL every test that traces to a requirement declared `hil`
@@ -12,6 +12,9 @@ commit touches known modules. Three policies decide what to run:
                (3) a criticality-A requirement's SiL margin dropped by more than `margin_drop`
                    against the reference run of the unchanged software (margin regression)
                and only if it did not already fail in SiL.
+  D  adaptive + noise-aware: C, plus a change to measurement-consuming code escalates its
+               impacted tests to HiL, and every HiL run of such a change is repeated on
+               independent noise seeds (stopping at the first failure)
 
 All policies use the same ordering heuristic, the same environments and the same seeds, so the
 comparison isolates the policy. Durations come from the environment cost model, not the host clock.
@@ -33,7 +36,7 @@ from volttrace.evaluate import ReqResult, RequirementSet, evaluate
 from volttrace.sim import simulate
 from volttrace.sut.changes import CLEAN
 from volttrace.sut.ems import Calibration, EnergyManager
-from volttrace.sut.impact import features_of
+from volttrace.sut.impact import features_of, noise_sensitive
 from volttrace.sut.mutants import MUTANTS
 
 
@@ -45,12 +48,19 @@ class Change:
     buggy: bool
     fidelity: str  # where the bug is observable by design: sil | hil | vehicle | none (clean)
     description: str
+    noise_sensitive: bool = False  # touches code that consumes raw measurements (derived, see ownership.yaml)
 
 
 def all_changes() -> list[Change]:
     """Every seeded bug plus every clean change; features come from impact analysis, not labels."""
-    bugs = [Change(m.name, m.factory, m.features, True, m.fidelity, m.description) for m in MUTANTS.values()]
-    clean = [Change(c.__name__, c, features_of(c), False, "none", (c.__doc__ or "").strip()) for c in CLEAN]
+    bugs = [
+        Change(m.name, m.factory, m.features, True, m.fidelity, m.description, noise_sensitive(m.factory))
+        for m in MUTANTS.values()
+    ]
+    clean = [
+        Change(c.__name__, c, features_of(c), False, "none", (c.__doc__ or "").strip(), noise_sensitive(c))
+        for c in CLEAN
+    ]
     return bugs + clean
 
 
@@ -68,21 +78,22 @@ class Runner:
         self.reqset = reqset
         self.seed_offset = seed_offset
         self.cases = {c.id: c for c in cases}
-        self.cache: dict[tuple[str, str, str], Execution] = {}
+        self.cache: dict[tuple[str, str, str, int], Execution] = {}
         self.factories: dict[str, Callable[[Calibration], EnergyManager]] = {"reference": EnergyManager}
 
-    def run(self, software: str, test_id: str, env: Env) -> Execution:
-        key = (software, test_id, env.name)
+    def run(self, software: str, test_id: str, env: Env, rep: int = 0) -> Execution:
+        """`rep` selects an independent noise seed for repeated HiL runs (paired with the reference)."""
+        key = (software, test_id, env.name, rep)
         if key not in self.cache:
             case = self.cases[test_id]
-            seed = zlib.crc32(test_id.encode()) + self.seed_offset
+            seed = zlib.crc32(test_id.encode()) + self.seed_offset + 7919 * rep
             tr = simulate(case.scenario, self.factories[software], sut_name=software, env=env, seed=seed)
             self.cache[key] = Execution(evaluate(tr, self.reqset, list(case.requirements)), float(tr.t[-1]))
         return self.cache[key]
 
-    def new_failures(self, software: str, test_id: str, env: Env) -> list[str]:
-        ref = {r.req_id for r in self.run("reference", test_id, env).results if r.verdict == "FAIL"}
-        res = self.run(software, test_id, env).results
+    def new_failures(self, software: str, test_id: str, env: Env, rep: int = 0) -> list[str]:
+        ref = {r.req_id for r in self.run("reference", test_id, env, rep).results if r.verdict == "FAIL"}
+        res = self.run(software, test_id, env, rep).results
         return [r.req_id for r in res if r.verdict == "FAIL" and r.req_id not in ref]
 
 
@@ -119,6 +130,7 @@ class Job:
     env: Env
     ready_after: str | None = None  # SiL job of the same test that must finish first
     reason: str = ""
+    reps: int = 1  # independent noise seeds on HiL; repetition stops at the first failure
 
 
 @dataclass
@@ -178,25 +190,31 @@ def _schedule(
     hil_ready.sort(key=lambda x: (x[0], x[1]))
     hil_free = [0.0] * HIL_MOCK.slots
     for ready, _, job in hil_ready:
-        heapq.heapify(hil_free)
-        start = max(heapq.heappop(hil_free), ready)
-        ex = runner.run(software, job.test_id, HIL_MOCK)
-        end = start + HIL_MOCK.duration(ex.sim_seconds)
-        heapq.heappush(hil_free, end)
-        timeline.append(
-            {
-                "test": job.test_id,
-                "env": "hil_mock",
-                "start": start,
-                "end": end,
-                "reason": job.reason,
-                "new_failures": runner.new_failures(software, job.test_id, HIL_MOCK),
-            }
-        )
+        for rep in range(job.reps):
+            heapq.heapify(hil_free)
+            start = max(heapq.heappop(hil_free), ready)
+            ex = runner.run(software, job.test_id, HIL_MOCK, rep)
+            end = start + HIL_MOCK.duration(ex.sim_seconds)
+            heapq.heappush(hil_free, end)
+            failures = runner.new_failures(software, job.test_id, HIL_MOCK, rep)
+            timeline.append(
+                {
+                    "test": job.test_id,
+                    "env": "hil_mock",
+                    "start": start,
+                    "end": end,
+                    "reason": job.reason + (f" (run {rep + 1}/{job.reps})" if job.reps > 1 else ""),
+                    "new_failures": failures,
+                }
+            )
+            if failures:
+                break
     return timeline, escalated
 
 
-def run_strategy(strategy: str, change: Change, runner: Runner, margin_drop: float = 0.25) -> Outcome:
+def run_strategy(
+    strategy: str, change: Change, runner: Runner, margin_drop: float = 0.25, noise_reps: int = 3
+) -> Outcome:
     reqset = runner.reqset
     cases = _order(list(runner.cases.values()))
     runner.factories[change.name] = change.factory
@@ -209,8 +227,12 @@ def run_strategy(strategy: str, change: Change, runner: Runner, margin_drop: flo
         sil = [Job(c.id, SIL) for c in cases]
         static = [Job(c.id, HIL_MOCK, reason="declared hil") for c in cases if _needs_hil(c, reqset)]
         timeline, esc = _schedule(sil, lambda _t: None, runner, sw, static)
-    elif strategy == "C":
+    elif strategy in ("C", "D"):
         selected = _impact(change, cases, reqset)
+        # D = C + noise awareness: a change to measurement-consuming code escalates its impacted tests and
+        # repeats each HiL run on independent noise seeds, because intermittent faults need more than one draw
+        noisy = strategy == "D" and change.noise_sensitive
+        reps = noise_reps if noisy else 1
 
         def decide(test_id: str) -> Job | None:
             case = runner.cases[test_id]
@@ -218,15 +240,17 @@ def run_strategy(strategy: str, change: Change, runner: Runner, margin_drop: flo
                 return None  # already caught at the cheapest level
             hil_reqs = _hil_reqs_touched(case, reqset, change)
             if hil_reqs:
-                return Job(test_id, HIL_MOCK, reason=f"touches hil requirement {', '.join(hil_reqs)}")
+                return Job(test_id, HIL_MOCK, reason=f"touches hil requirement {', '.join(hil_reqs)}", reps=reps)
             res = {r.req_id: r for r in runner.run(sw, test_id, SIL).results}
             ref = {r.req_id: r for r in runner.run("reference", test_id, SIL).results}
             for rid, r in res.items():
                 if r.verdict == "INCONCLUSIVE":
-                    return Job(test_id, HIL_MOCK, reason=f"thin margin {rid} {r.robustness:+.2f}")
+                    return Job(test_id, HIL_MOCK, reason=f"thin margin {rid} {r.robustness:+.2f}", reps=reps)
                 if reqset.reqs[rid].criticality == "A" and r.robustness < ref[rid].robustness - margin_drop:
                     drop = ref[rid].robustness - r.robustness
-                    return Job(test_id, HIL_MOCK, reason=f"margin regression {rid} -{drop:.2f}")
+                    return Job(test_id, HIL_MOCK, reason=f"margin regression {rid} -{drop:.2f}", reps=reps)
+            if noisy:
+                return Job(test_id, HIL_MOCK, reason="noise-sensitive change", reps=reps)
             return None
 
         timeline, esc = _schedule([Job(c.id, SIL) for c in selected], decide, runner, sw, [])
@@ -255,7 +279,7 @@ def run_strategy(strategy: str, change: Change, runner: Runner, margin_drop: flo
     )
 
 
-def benchmark(runner: Runner, changes: list[Change] | None = None, strategies: str = "ABC") -> list[Outcome]:
+def benchmark(runner: Runner, changes: list[Change] | None = None, strategies: str = "ABCD") -> list[Outcome]:
     return [run_strategy(s, ch, runner) for ch in (changes or all_changes()) for s in strategies]
 
 

@@ -41,6 +41,18 @@
         "mean_makespan_min": 3.2,
         "median_ttff_s": 4.4,
         "clean_change_makespan_min": 0.7
+      },
+      {
+        "strategy": "D",
+        "bugs_detected": "13/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "4/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 9.3,
+        "mean_makespan_min": 9.3,
+        "median_ttff_s": 4.6,
+        "clean_change_makespan_min": 0.7
       }
     ],
     "1": [
@@ -77,6 +89,18 @@
         "false_alarms_on_clean": "0/5",
         "mean_hil_minutes": 3.1,
         "mean_makespan_min": 3.2,
+        "median_ttff_s": 4.4,
+        "clean_change_makespan_min": 0.7
+      },
+      {
+        "strategy": "D",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 9.1,
+        "mean_makespan_min": 9.2,
         "median_ttff_s": 4.4,
         "clean_change_makespan_min": 0.7
       }
@@ -116,6 +140,18 @@
         "mean_hil_minutes": 3.1,
         "mean_makespan_min": 3.2,
         "median_ttff_s": 4.2,
+        "clean_change_makespan_min": 0.7
+      },
+      {
+        "strategy": "D",
+        "bugs_detected": "12/14",
+        "sil_observable_detected": "9/9",
+        "hil_only_detected": "3/4",
+        "vehicle_only_detected": "0/1",
+        "false_alarms_on_clean": "0/5",
+        "mean_hil_minutes": 9.8,
+        "mean_makespan_min": 9.9,
+        "median_ttff_s": 4.4,
         "clean_change_makespan_min": 0.7
       }
     ]

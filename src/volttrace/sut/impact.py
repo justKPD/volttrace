@@ -38,3 +38,10 @@ def features_of(cls: type[EnergyManager]) -> tuple[str, ...]:
         for v in hits:
             feats |= set(v)
     return tuple(sorted(feats))
+
+
+def noise_sensitive(cls: type[EnergyManager]) -> bool:
+    """Does the change modify code or calibration that consumes raw measurements or frame timing?"""
+    ns = ownership()["noise_sensitive"]
+    methods, keys = modified_symbols(cls)
+    return bool(set(methods) & set(ns["methods"])) or any(k.startswith(p) for k in keys for p in ns["calibration"])
