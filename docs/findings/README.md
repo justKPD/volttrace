@@ -119,6 +119,6 @@ because there the first frame is never late.
 signal is invalid, not zero. After the fix, all five launches take 8.86–8.87 s on HiL and C02 raises nothing.
 
 **Regression protection.** Mutant M14 re-introduces the 0 V default. New requirement REQ-FS-015 (full discharge
-power within 1 s of power-up, declared `hil`) and the KPI kill it on HiL.
+power within 1 s of power-up, declared `hil`) kills it on HiL; SiL cannot see it.
 
 **Lesson.** A "false alarm" on a clean change is a lead, not noise to tune away.
