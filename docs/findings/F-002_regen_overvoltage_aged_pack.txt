@@ -1,0 +1,15 @@
+FZ-003-CX on the clean SUT: aged pack (R x1.72), SOC 0.895, 200 km/h, brake 0.53 -> 0.71
+t= 0.00s v_bus= 787.4 V  p_regen=  74.8 kW  p_chg_lim= 300.0 kW  brake=0.53
+t= 0.05s v_bus= 812.5 V  p_regen= 259.8 kW  p_chg_lim= 262.8 kW  brake=0.53
+t= 0.10s v_bus= 807.2 V  p_regen= 219.6 kW  p_chg_lim= 222.6 kW  brake=0.53
+t= 0.15s v_bus= 805.6 V  p_regen= 207.6 kW  p_chg_lim= 210.6 kW  brake=0.53
+t= 0.20s v_bus= 805.2 V  p_regen= 204.3 kW  p_chg_lim= 207.3 kW  brake=0.53
+t= 0.25s v_bus= 805.0 V  p_regen= 203.4 kW  p_chg_lim= 206.4 kW  brake=0.53
+t= 0.30s v_bus= 805.1 V  p_regen= 204.0 kW  p_chg_lim= 207.0 kW  brake=0.53
+t= 0.35s v_bus= 805.3 V  p_regen= 205.2 kW  p_chg_lim= 208.2 kW  brake=0.53
+t= 0.40s v_bus= 805.1 V  p_regen= 203.6 kW  p_chg_lim= 206.5 kW  brake=0.53
+t= 0.45s v_bus= 805.2 V  p_regen= 204.3 kW  p_chg_lim= 207.3 kW  brake=0.53
+t= 0.50s v_bus= 805.0 V  p_regen= 203.3 kW  p_chg_lim= 206.2 kW  brake=0.53
+t= 0.55s v_bus= 805.1 V  p_regen= 204.0 kW  p_chg_lim= 207.0 kW  brake=0.53
+t= 0.60s v_bus= 805.0 V  p_regen= 203.2 kW  p_chg_lim= 206.2 kW  brake=0.53
+max v_bus = 817.4 V at t=0.03s (requirement <= 815 V)

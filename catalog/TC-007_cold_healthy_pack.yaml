@@ -1,0 +1,11 @@
+id: TC-007
+title: Cold (-10 degC) healthy pack at 50 % SOC, full-pedal launch - cold power cap independent of the voltage guard
+requirements: [REQ-HV-012, REQ-HV-001]
+features: [discharge_limit, cold]
+criticality: A
+required_fidelity: sil
+scenario:
+  driver: launch_repeat
+  args: {n: 1, v_target_kph: 180, brake: 0.5, pause_s: 2}
+  initial: {soc: 0.50, t_bat_c: -10, t_inv_c: 20, t_coolant_bat_c: -10}
+  max_duration_s: 60

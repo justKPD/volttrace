@@ -1,0 +1,45 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: Static checks
+        run: |
+          ruff check src tests
+          ruff format --check src tests
+      - name: Unit + end-to-end tests
+        run: pytest -q
+
+  validation-pipeline:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - name: "Pipeline: static checks -> lint -> SiL run -> gate"
+        run: volttrace pipeline --out out
+      - name: Mutation kill matrix
+        run: volttrace mutants --out out
+      - name: "Falsification: regen template (finds open finding F-002; exit code 2 = counterexample)"
+        run: volttrace falsify falsify/FZ-003_regen.yaml --strategy cem --budget 48 --seed 1 --out out || test $? -eq 2
+      - name: Job summary
+        if: always()
+        run: cat out/pipeline.md out/summary_baseline.md out/mutation_matrix.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: validation-evidence
+          path: out/

@@ -1,0 +1,20 @@
+id: FZ-003
+title: Search SOC, speed, pack temperature and brake levels for regen overvoltage, high-SOC over-charge and blending errors
+targets: [REQ-HV-002, REQ-EM-005, REQ-EM-006]
+features: [charge_limit, regen, brake_blending, voltage_guard]
+scenario:
+  driver: profile
+  args:
+    rows:
+      - {t: 0.0, pedal: 0.0, brake: 0.5}
+      - {t: 5.0, pedal: 0.0, brake: 0.2}
+      - {t: 10.0, pedal: 0.0, brake: 0.0}
+  initial: {soc: 0.95, t_bat_c: 25, v_kph: 200}
+  max_duration_s: 12
+params:
+  - {path: initial.soc, lo: 0.85, hi: 0.995}
+  - {path: initial.v_kph, lo: 60, hi: 260}
+  - {path: initial.t_bat_c, lo: -15, hi: 45}
+  - {path: initial.r_aging_factor, lo: 1.0, hi: 2.2}
+  - {path: args.rows.0.brake, lo: 0.05, hi: 1.0}
+  - {path: args.rows.1.brake, lo: 0.05, hi: 1.0}

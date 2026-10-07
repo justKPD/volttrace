@@ -1,0 +1,39 @@
+# Synthetic plant parameters for a generic 800 V performance BEV.
+# Every value is an order-of-magnitude choice from public textbook ranges.
+# None of them is a Mercedes-AMG figure, and the model is not AMG.EA.
+# The drive is ONE equivalent motor (the real AMG.EA has three axial-flux motors).
+
+vehicle:
+  mass_kg: 2400.0
+  cd: 0.30
+  frontal_area_m2: 2.4
+  crr: 0.011
+  wheel_radius_m: 0.36
+  gear_ratio: 9.0
+  gear_efficiency: 0.97
+  tire_mu: 1.1            # longitudinal traction limit = mu * m * g
+  air_density: 1.2
+
+motor:
+  torque_peak_nm: 900.0   # motor-equivalent
+  power_peak_w: 600000.0
+  efficiency: 0.93
+  aux_load_w: 3000.0      # HV auxiliaries (pumps, DC/DC); always drawn
+
+battery:
+  n_series: 192
+  capacity_ah: 130.0
+  # Cell open-circuit voltage vs SOC (synthetic NMC-like curve)
+  soc_bp:      [0.00, 0.05, 0.10, 0.20, 0.40, 0.60, 0.80, 0.90, 0.95, 1.00]
+  ocv_cell_v:  [3.00, 3.30, 3.45, 3.55, 3.65, 3.80, 3.97, 4.05, 4.10, 4.17]
+  r_pack_25c_ohm: 0.060
+  # Internal resistance multiplier vs cell temperature
+  r_temp_bp_c:     [-20.0, 0.0, 10.0, 25.0, 40.0, 55.0]
+  r_temp_factor:   [4.0,   2.2, 1.5,  1.0,  0.85, 0.80]
+  thermal_capacity_j_per_k: 200000.0   # lumped cell-core mass
+  thermal_resistance_k_per_w: 0.00133  # direct cell cooling to coolant
+
+inverter:
+  loss_fraction: 0.012                 # of |electrical power|
+  thermal_capacity_j_per_k: 8000.0
+  thermal_resistance_k_per_w: 0.010

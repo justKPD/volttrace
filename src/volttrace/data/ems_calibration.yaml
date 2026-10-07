@@ -1,0 +1,46 @@
+# Calibration of the energy-management SUT (the role an A2L/INCA dataset plays
+# in a real ECU). Code and calibration are deliberately separate so a test
+# can tell a software bug from a calibration error.
+
+motor_torque_peak_nm: 900.0
+motor_power_peak_w: 600000.0
+motor_efficiency: 0.93
+gear_ratio: 9.0
+wheel_radius_m: 0.36
+brake_force_max_n: 23500.0     # wheel force at 100 % brake pedal (~1.0 g)
+omega_min_rad_s: 50.0          # floor for power->torque conversion
+regen_fade_speed_mps: [1.0, 4.0]   # regen ramps from 0 at 1 m/s to full at 4 m/s
+torque_rate_max_nm_s: 6000.0
+
+# Discharge power limit vs SOC (kW)
+dis_soc_bp:  [0.00, 0.05, 0.10, 0.20, 0.30, 1.00]
+dis_soc_kw:  [0.0,  100., 250., 500., 600., 600.]
+# Charge (regen) power limit vs SOC (kW)
+chg_soc_bp:  [0.00, 0.90, 0.95, 0.97, 0.99, 1.00]
+chg_soc_kw:  [300., 300., 120., 30.,  0.,   0.]
+# Cold-cell factor on both limits
+cold_bp_c:     [-20.0, 0.0, 10.0, 20.0]
+cold_factor:   [0.25,  0.5, 0.75, 1.0]
+cold_chg_factor: [0.05, 0.2, 0.5, 1.0]
+
+# Thermal derating (linear ramp with hysteresis)
+bat_derate_start_c: 50.0
+bat_derate_full_c: 60.0
+bat_derate_exit_c: 47.0
+inv_derate_start_c: 85.0
+inv_derate_full_c: 100.0
+inv_derate_exit_c: 82.0
+derate_floor: 0.30
+
+# Voltage guards (pack terminal voltage)
+v_min_guard_v: 600.0
+v_max_guard_v: 805.0
+v_guard_down_per_v_s: 0.5     # guard factor removed per volt beyond the guard per second
+v_guard_recover_per_s: 0.3    # guard factor restored per second once back inside
+
+# Diagnostics
+can_timeout_s: 0.100
+t_bat_plaus_range_c: [-40.0, 90.0]
+t_bat_plaus_rate_k_s: 5.0
+t_bat_plaus_quant_k: 1.0      # allowance for the 0.5 K CAN resolution
+limp_p_dis_kw: 50.0

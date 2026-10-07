@@ -1,0 +1,107 @@
+# HV energy-management requirements, written as Signal Temporal Logic over the
+# logged channels (see volttrace/sim.py: CHANNELS). Truth-side channels (v_bus,
+# t_bat, ...) come from the plant. *_sensed channels are what the EMS received.
+#
+# scales: robustness is divided by these, so margins of different physical
+# quantities are comparable. "Margin 1.0" = one scale unit of headroom.
+
+scales:
+  v_bus: 50.0          # V
+  t_bat: 5.0           # K
+  t_inv: 10.0          # K
+  p_regen_kw: 30.0
+  p_dis_lim_kw: 5.0 
+  p_bat_kw: 50.0
+  decel_error: 0.05
+  torque_rate: 2000.0  # Nm/s
+  age_bms: 0.1         # s
+  soc: 0.01
+  state: 1.0
+  t_bat_sensed: 10.0
+
+requirements:
+  - id: REQ-HV-001
+    title: Pack terminal voltage never drops below the cell-safe minimum (560 V)
+    stl: always(v_bus >= 560)
+    criticality: A
+    features: [discharge_limit, voltage_guard, cold]
+    fidelity: sil
+
+  - id: REQ-HV-002
+    title: Pack terminal voltage never exceeds 815 V (regen overvoltage)
+    stl: always(v_bus <= 815)
+    criticality: A
+    features: [charge_limit, regen, voltage_guard]
+    fidelity: sil
+
+  - id: REQ-TH-003
+    title: Cell temperature stays at or below 62 degC
+    stl: always(t_bat <= 62)
+    criticality: A
+    features: [thermal_derating]
+    fidelity: sil
+
+  - id: REQ-TH-004
+    title: Inverter temperature stays at or below 105 degC
+    stl: always(t_inv <= 105)
+    criticality: A
+    features: [thermal_derating]
+    fidelity: sil
+
+  - id: REQ-EM-005
+    title: Above 97 % SOC, regenerative charging power is limited to 40 kW
+    stl: always(implies(soc >= 0.97, p_regen_kw <= 40))
+    criticality: B
+    features: [charge_limit, regen]
+    fidelity: sil
+
+  - id: REQ-EM-006
+    title: Total deceleration force matches the driver's brake demand within 5 % of full braking
+    stl: always(decel_error <= 0.05)
+    criticality: A
+    features: [brake_blending, regen]
+    fidelity: sil
+
+  - id: REQ-EM-007
+    title: At 59 degC cell temperature, discharge limit is <= 240 kW within 1 s
+    stl: always(implies(t_bat >= 59, eventually(p_dis_lim_kw <= 240, 0, 1.0)))
+    criticality: B
+    features: [thermal_derating]
+    fidelity: sil
+
+  - id: REQ-FS-008
+    title: BMS frame lost for 100 ms -> limp-home discharge limit (<= 50 kW) within 200 ms
+    stl: always(implies(age_bms >= 0.1, eventually(p_dis_lim_kw <= 52, 0, 0.2)))
+    criticality: A
+    features: [diagnostics, can]
+    fidelity: hil   # timing-dependent: SiL shows the logic, bus timing needs HiL
+
+  - id: REQ-DR-009
+    title: Torque command slew rate stays within +/- 6500 Nm/s (driveability / drivetrain load)
+    stl: always(torque_rate <= 6500 and torque_rate >= -6500)
+    criticality: B
+    features: [torque_arbitration, driveability]
+    fidelity: sil
+
+  - id: REQ-FS-010
+    title: Implausible cell-temperature reading (> 90 degC) -> FAULT state within 200 ms
+    stl: always(implies(t_bat_sensed >= 90.5, eventually(state >= 3.5, 0, 0.2)))
+    criticality: A
+    features: [diagnostics]
+    fidelity: sil
+
+  - id: KPI-PERF-011
+    title: Repeatable performance - 0-to-target launch times vary by at most 5 % across a launch series
+    kind: kpi
+    metric: launch_time_spread
+    max: 0.05
+    criticality: C
+    features: [thermal_derating, discharge_limit]
+    fidelity: sil
+
+  - id: REQ-HV-012
+    title: At or below 0 degC cell temperature, battery discharge power stays <= 305 kW (cold-cell protection)
+    stl: always(implies(t_bat <= 0, p_bat_kw <= 305))
+    criticality: A
+    features: [discharge_limit, cold]
+    fidelity: sil

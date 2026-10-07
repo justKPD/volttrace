@@ -1,0 +1,12 @@
+id: TC-006
+title: Cell-temperature sensor reads 120 degC (open circuit) - plausibility fault and limp-home
+requirements: [REQ-FS-010, REQ-HV-001]
+features: [diagnostics]
+criticality: A
+required_fidelity: sil
+scenario:
+  driver: profile
+  args: {rows: [{t: 0.0, pedal: 0.5}]}
+  initial: {soc: 0.70, t_bat_c: 30}
+  faults: [{t: 3.0, kind: stuck, signal: BMS_T_bat, value: 120}]
+  max_duration_s: 6

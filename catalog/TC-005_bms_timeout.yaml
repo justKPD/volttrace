@@ -1,0 +1,12 @@
+id: TC-005
+title: BMS_1 frame lost during acceleration - limp-home reaction time
+requirements: [REQ-FS-008]
+features: [diagnostics, can]
+criticality: A
+required_fidelity: hil
+scenario:
+  driver: profile
+  args: {rows: [{t: 0.0, pedal: 0.6}]}
+  initial: {soc: 0.70, t_bat_c: 30}
+  faults: [{t: 4.0, kind: timeout, message: BMS_1}]
+  max_duration_s: 8

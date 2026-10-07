@@ -1,0 +1,42 @@
+VERSION ""
+
+
+NS_ :
+
+BS_:
+
+BU_: VCU BMS INV EMS
+
+
+BO_ 128 VCU_1: 2 VCU
+ SG_ VCU_Pedal : 0|8@1+ (0.4,0) [0|100] "%" EMS
+ SG_ VCU_Brake : 8|8@1+ (0.4,0) [0|100] "%" EMS
+
+BO_ 256 BMS_1: 8 BMS
+ SG_ BMS_SOC : 0|10@1+ (0.1,0) [0|100] "%" EMS
+ SG_ BMS_T_bat : 10|9@1+ (0.5,-40) [-40|215.5] "degC" EMS
+ SG_ BMS_V_bus : 19|14@1+ (0.1,0) [0|1638.3] "V" EMS
+ SG_ BMS_I_bat : 33|16@1- (0.1,0) [-3276.8|3276.7] "A" EMS
+
+BO_ 272 INV_1: 8 INV
+ SG_ INV_T_inv : 0|9@1+ (0.5,-40) [-40|215.5] "degC" EMS
+ SG_ INV_Speed : 9|16@1+ (0.1,0) [0|6553.5] "rad/s" EMS
+ SG_ INV_Torque_act : 25|16@1- (0.1,0) [-3276.8|3276.7] "Nm" EMS
+
+BO_ 512 EMS_1: 8 EMS
+ SG_ EMS_P_dis_lim : 0|12@1+ (0.5,0) [0|2047.5] "kW" VCU,BMS,INV
+ SG_ EMS_P_chg_lim : 12|12@1+ (0.5,0) [0|2047.5] "kW" VCU,BMS,INV
+ SG_ EMS_State : 24|4@1+ (1,0) [0|15] "" VCU,BMS,INV
+ SG_ EMS_Derate : 28|8@1+ (0.5,0) [0|100] "%" VCU,BMS,INV
+ SG_ EMS_T_cmd : 36|16@1- (0.1,0) [-3276.8|3276.7] "Nm" INV
+
+
+CM_ BO_ 256 "Battery management status (synthetic)";
+CM_ BO_ 512 "Energy-management limits and torque command (system under test)";
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 10000;
+BA_DEF_DEF_ "GenMsgCycleTime" 100;
+BA_ "GenMsgCycleTime" BO_ 128 10;
+BA_ "GenMsgCycleTime" BO_ 256 20;
+BA_ "GenMsgCycleTime" BO_ 272 10;
+BA_ "GenMsgCycleTime" BO_ 512 10;
+VAL_ 512 EMS_State 0 "INIT" 1 "READY" 2 "DRIVE" 3 "DERATE" 4 "FAULT" ;

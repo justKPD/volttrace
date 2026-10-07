@@ -1,0 +1,30 @@
+TC-003 (R x1.8, -10 degC), memoryless proportional undervoltage guard, every 0.25 s
+t= 0.00s  v_bus= 684.9 V  p_bat=   3.0 kW  p_dis_lim= 206.2 kW  torque_cmd=  60.0 Nm
+t= 0.25s  v_bus= 665.3 V  p_bat=  42.0 kW  p_dis_lim= 206.2 kW  torque_cmd= 900.0 Nm
+t= 0.50s  v_bus= 635.7 V  p_bat=  96.3 kW  p_dis_lim= 206.2 kW  torque_cmd= 900.0 Nm
+t= 0.75s  v_bus= 602.8 V  p_bat= 150.6 kW  p_dis_lim= 206.2 kW  torque_cmd= 900.0 Nm
+t= 1.00s  v_bus= 590.2 V  p_bat= 169.7 kW  p_dis_lim= 205.8 kW  torque_cmd= 753.6 Nm
+t= 1.25s  v_bus= 579.9 V  p_bat= 184.9 kW  p_dis_lim= 181.9 kW  torque_cmd= 678.6 Nm
+t= 1.50s  v_bus= 583.3 V  p_bat= 180.1 kW  p_dis_lim=  86.1 kW  torque_cmd= 574.8 Nm
+t= 1.75s  v_bus= 599.2 V  p_bat= 156.7 kW  p_dis_lim=  90.6 kW  torque_cmd= 447.4 Nm
+t= 2.00s  v_bus= 583.1 V  p_bat= 180.9 kW  p_dis_lim= 199.7 kW  torque_cmd= 473.6 Nm
+t= 2.25s  v_bus= 566.2 V  p_bat= 204.6 kW  p_dis_lim= 205.9 kW  torque_cmd= 497.0 Nm
+t= 2.50s  v_bus= 581.2 V  p_bat= 184.0 kW  p_dis_lim=  53.2 kW  torque_cmd= 417.2 Nm
+t= 2.75s  v_bus= 600.3 V  p_bat= 155.6 kW  p_dis_lim=  52.7 kW  torque_cmd= 331.7 Nm
+t= 3.00s  v_bus= 581.4 V  p_bat= 184.1 kW  p_dis_lim= 208.9 kW  torque_cmd= 373.6 Nm
+t= 3.25s  v_bus= 561.4 V  p_bat= 211.9 kW  p_dis_lim= 208.9 kW  torque_cmd= 411.0 Nm
+t= 3.50s  v_bus= 584.1 V  p_bat= 180.5 kW  p_dis_lim=  48.1 kW  torque_cmd= 334.5 Nm
+t= 3.75s  v_bus= 606.5 V  p_bat= 146.4 kW  p_dis_lim=  48.9 kW  torque_cmd= 260.0 Nm
+t= 4.00s  v_bus= 585.7 V  p_bat= 178.5 kW  p_dis_lim= 208.9 kW  torque_cmd= 307.2 Nm
+t= 4.25s  v_bus= 562.0 V  p_bat= 211.9 kW  p_dis_lim= 208.9 kW  torque_cmd= 353.8 Nm
+t= 4.50s  v_bus= 588.1 V  p_bat= 175.3 kW  p_dis_lim=  51.7 kW  torque_cmd= 283.0 Nm
+t= 4.75s  v_bus= 612.7 V  p_bat= 136.9 kW  p_dis_lim=  52.6 kW  torque_cmd= 213.7 Nm
+t= 5.00s  v_bus= 589.5 V  p_bat= 173.6 kW  p_dis_lim= 208.5 kW  torque_cmd= 265.2 Nm
+t= 5.25s  v_bus= 562.9 V  p_bat= 211.5 kW  p_dis_lim= 208.5 kW  torque_cmd= 316.2 Nm
+t= 5.50s  v_bus= 590.7 V  p_bat= 172.0 kW  p_dis_lim=  53.0 kW  torque_cmd= 250.3 Nm
+t= 5.75s  v_bus= 615.7 V  p_bat= 132.5 kW  p_dis_lim=  44.9 kW  torque_cmd= 187.4 Nm
+t= 6.00s  v_bus= 590.5 V  p_bat= 172.8 kW  p_dis_lim= 211.6 kW  torque_cmd= 240.5 Nm
+t= 6.25s  v_bus= 561.3 V  p_bat= 214.6 kW  p_dis_lim= 211.6 kW  torque_cmd= 293.8 Nm
+t= 6.50s  v_bus= 592.0 V  p_bat= 170.7 kW  p_dis_lim=  48.2 kW  torque_cmd= 228.3 Nm
+t= 6.75s  v_bus= 620.3 V  p_bat= 125.1 kW  p_dis_lim=  49.1 kW  torque_cmd= 163.2 Nm
+min v_bus = 560.6 V (requirement >= 560 V)

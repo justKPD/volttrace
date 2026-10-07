@@ -1,0 +1,11 @@
+id: TC-003
+title: Cold (-10 degC), aged (R x2.0), half-empty pack under full-pedal launches - cold limits and undervoltage
+requirements: [REQ-HV-001, REQ-HV-012]
+features: [discharge_limit, cold, voltage_guard]
+criticality: A
+required_fidelity: sil
+scenario:
+  driver: launch_repeat
+  args: {n: 2, v_target_kph: 160, brake: 0.5, pause_s: 5}
+  initial: {soc: 0.25, t_bat_c: -10, t_inv_c: 20, t_coolant_bat_c: -10, r_aging_factor: 2.0}
+  max_duration_s: 120

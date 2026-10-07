@@ -1,0 +1,15 @@
+id: FZ-002
+title: Search hot-start conditions, coolant temperatures and lap aggressiveness for cell/inverter over-temperature
+targets: [REQ-TH-003, REQ-TH-004]
+features: [thermal_derating]
+scenario:
+  driver: track_sprint
+  args: {laps: 2, brake: 0.8}
+  initial: {soc: 0.85, t_bat_c: 40, t_inv_c: 60, t_coolant_bat_c: 30, t_coolant_inv_c: 50}
+  max_duration_s: 160
+params:
+  - {path: initial.t_bat_c, lo: 25, hi: 59.9}
+  - {path: initial.t_inv_c, lo: 50, hi: 99}
+  - {path: initial.t_coolant_bat_c, lo: 20, hi: 45}
+  - {path: initial.t_coolant_inv_c, lo: 40, hi: 70}
+  - {path: args.laps, lo: 1, hi: 3, integer: true}

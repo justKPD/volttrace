@@ -1,0 +1,39 @@
+id: FZ-003-CX
+title: 'Counterexample from falsifier FZ-003 against baseline: Search SOC, speed,
+  pack temperature and brake levels for regen overvoltage, high-SOC over-charge and
+  blending errors'
+requirements:
+- REQ-HV-002
+- REQ-EM-005
+- REQ-EM-006
+features:
+- charge_limit
+- regen
+- brake_blending
+- voltage_guard
+criticality: A
+known_issue: F-002
+required_fidelity: sil
+origin:
+  falsifier: FZ-003
+  sut: baseline
+  robustness: -0.0475
+scenario:
+  driver: profile
+  args:
+    rows:
+    - t: 0.0
+      pedal: 0.0
+      brake: 0.5345
+    - t: 5.0
+      pedal: 0.0
+      brake: 0.7068
+    - t: 10.0
+      pedal: 0.0
+      brake: 0.0
+  initial:
+    soc: 0.8952
+    t_bat_c: 22.656
+    v_kph: 200.6783
+    r_aging_factor: 1.7235
+  max_duration_s: 12

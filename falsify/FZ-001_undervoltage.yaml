@@ -1,0 +1,15 @@
+id: FZ-001
+title: Search pack state, temperature, ageing and launch count for terminal-voltage undershoot
+targets: [REQ-HV-001]
+features: [discharge_limit, voltage_guard, cold]
+scenario:
+  driver: launch_repeat
+  args: {n: 1, v_target_kph: 160, brake: 0.5, pause_s: 3}
+  initial: {soc: 0.3, t_bat_c: 0, t_coolant_bat_c: 0, r_aging_factor: 1.0}
+  max_duration_s: 60
+params:
+  - {path: initial.soc, lo: 0.08, hi: 0.6}
+  - {path: initial.t_bat_c, lo: -20, hi: 25}
+  - {path: initial.t_coolant_bat_c, lo: -20, hi: 25}
+  - {path: initial.r_aging_factor, lo: 1.0, hi: 2.5}
+  - {path: args.n, lo: 1, hi: 3, integer: true}
